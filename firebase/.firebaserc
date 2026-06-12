@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "trivia-dev",
+    "dev": "trivia-dev",
+    "staging": "trivia-staging",
+    "prod": "trivia-prod"
+  }
+}

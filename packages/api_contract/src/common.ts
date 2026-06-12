@@ -1,0 +1,36 @@
+import { z } from "zod";
+
+// Difficulty tiers (GDD §3.2). Timer/points values are balance config, not contract.
+export const DifficultySchema = z.enum(["easy", "medium", "hard"]);
+export type Difficulty = z.infer<typeof DifficultySchema>;
+
+// Category-selection modes for duels (GDD §4.3).
+export const CategoryModeSchema = z.enum(["pick", "spin", "auto"]);
+export type CategoryMode = z.infer<typeof CategoryModeSchema>;
+
+// Every mutating callable carries a client-generated UUID v4 (doc 07 §1).
+export const IdempotencyKeySchema = z.string().uuid();
+
+// Machine-readable error reasons carried in HttpsError details.reason (doc 07 §1).
+export const ErrorReasonSchema = z.enum([
+  // failed-precondition
+  "not-your-turn",
+  "match-finished",
+  "already-answered",
+  "question-expired",
+  "daily-already-played",
+  "language-mismatch",
+  "day-out-of-window",
+  // resource-exhausted
+  "max-active-duels",
+  "max-duels-with-friend",
+  "emote-rate-limit",
+  // permission-denied
+  "not-participant",
+  "blocked",
+  // not-found
+  "match",
+  "user",
+  "invite-code",
+]);
+export type ErrorReason = z.infer<typeof ErrorReasonSchema>;

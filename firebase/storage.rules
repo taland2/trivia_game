@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Default-deny (doc 09). Storage is unused in MVP; rules exist so the emulator
+// suite and deploys are complete from day one.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

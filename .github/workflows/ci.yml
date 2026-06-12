@@ -1,0 +1,74 @@
+# CI per doc 13 §2. Flutter job activates once app/ is generated (tooling session);
+# emulator integration + rules-matrix jobs activate in Phase 1 when they exist.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  contract:
+    name: api_contract — typecheck + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/api_contract
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/api_contract/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  functions:
+    name: functions — lint + typecheck + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      # file:../packages/api_contract dependency needs the contract built first.
+      - run: npm ci
+        working-directory: packages/api_contract
+      - run: npm run build
+        working-directory: packages/api_contract
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  app:
+    name: flutter — analyze + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check whether the Flutter project exists yet
+        id: app-exists
+        run: |
+          if [ -f app/pubspec.yaml ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "app/ not generated yet (doc 15 Phase 0 tooling deferred) — skipping."
+          fi
+      - uses: subosito/flutter-action@v2
+        if: steps.app-exists.outputs.exists == 'true'
+        with:
+          channel: stable
+      - run: flutter analyze
+        if: steps.app-exists.outputs.exists == 'true'
+        working-directory: app
+      - run: flutter test
+        if: steps.app-exists.outputs.exists == 'true'
+        working-directory: app

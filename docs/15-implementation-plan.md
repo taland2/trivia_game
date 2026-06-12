@@ -41,6 +41,19 @@ Everything through Phase 6 runs on **emulators** — no Blaze plan needed yet.
 **Exit checkpoint:** `flutter run` (dev flavor) shows a hello screen on the emulator;
 `firebase emulators:start` serves Auth+Firestore+Functions; CI green.
 
+> **2026-06-12 — Phase 0 split (user decision):** code-side scaffold done first; SDK
+> installs deferred to a dedicated tooling session. Decisions: develop against a
+> **physical Android device** (no AVD — dev machine has 8GB RAM / 16.5GB free disk;
+> Hyper-V available if ever needed); heavy SDKs to be installed on **drive E:**.
+> Done: monorepo scaffold (`functions/` TS+ESLint+Vitest with balance-config module,
+> scoring engine + GDD §3.3 test suite, `v1_ping`; `packages/api_contract` zod schemas
+> + anti-leak serving test + Dart codegen stub; `firebase/` default-deny rules + full
+> emulator config; `content-tools/` CLI skeleton; CI workflow with Flutter job gated
+> on `app/pubspec.yaml`; README + `scripts/dev.ps1`).
+> Remaining for Phase 0 exit: install Flutter SDK + Android cmdline-tools (drive E:) +
+> Java 17 + Firebase CLI · `flutter create` app with flavors · hello screen on device ·
+> emulator suite boot · create `trivia-dev`.
+
 ## Phase 1 — Walking Skeleton 🦴
 *Refs: doc 02 §3.3, doc 06 §4, doc 07 §2.2*
 
@@ -194,7 +207,7 @@ operating period, not a build phase).
 ## Progress Tracker
 | Phase | Status | Date | Commit |
 |---|---|---|---|
-| 0 — Tooling & scaffold | ☐ | | |
+| 0 — Tooling & scaffold | ◐ code scaffold done; SDK installs pending | 2026-06-12 | |
 | 1 — Walking skeleton | ☐ | | |
 | 2 — Round engine | ☐ | | |
 | 3 — Duels | ☐ | | |

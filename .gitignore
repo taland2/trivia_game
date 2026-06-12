@@ -1,0 +1,38 @@
+# Node
+node_modules/
+*.log
+.npm/
+
+# Build outputs
+lib/
+dist/
+build/
+coverage/
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+pubsub-debug.log
+*.emulator-data/
+
+# Flutter / Dart (app/ — generated next to flutter create)
+app/.dart_tool/
+app/.packages
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Secrets — never committed (doc 06 §8: secrets via Secret Manager / local env only)
+.env
+.env.*
+*.keystore
+service-account*.json

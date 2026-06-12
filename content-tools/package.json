@@ -1,0 +1,13 @@
+{
+  "name": "trivia-content-tools",
+  "version": "0.1.0",
+  "description": "Internal CLI: question generation, OpenTDB import, review, publishing (doc 03). Not shipped.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "trivia-content": "src/cli.mjs"
+  },
+  "scripts": {
+    "start": "node src/cli.mjs"
+  }
+}
