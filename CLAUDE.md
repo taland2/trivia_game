@@ -8,7 +8,9 @@ real-time modes, tournaments, and UGC packs. Solo product owner + AI-assisted de
 ## Project status
 **Planning complete, no code yet.** The full spec suite lives in `docs/00`–`docs/14` and is
 the **source of truth** — read the relevant doc before designing or implementing anything.
-Next major task: initial implementation plan + Gate A build (see `docs/11-mvp-roadmap.md` §2–3).
+**Execution follows `docs/15-implementation-plan.md`** — walking-skeleton phases, one phase
+per session, each ending playable + committed. Check its Progress Tracker for the current
+phase, and follow its Session Protocol at the start and end of every implementation session.
 
 ## Working conventions (user preferences — follow these)
 - **Chat with the user in Hebrew. All project artifacts (docs, code, comments, commits) in English.**
@@ -36,6 +38,7 @@ Next major task: initial implementation plan + Gate A build (see `docs/11-mvp-ro
 | `docs/12-test-plan.md` | Test pyramid, golden paths, edge-case matrix |
 | `docs/13-devops-release.md` | Repo layout, CI/CD, monitoring, store ops |
 | `docs/14-liveops-plan.md` | Operating rhythm, runbook, support |
+| `docs/15-implementation-plan.md` | **Active execution plan**: phases 0–12, session protocol, progress tracker |
 
 ## Key decisions (locked — full list in docs)
 - **Stack:** Flutter (Dart) + Firebase (Auth, Firestore, Functions in TypeScript, FCM,
