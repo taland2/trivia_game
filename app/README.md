@@ -1,12 +1,17 @@
-# app/ — Flutter client (placeholder)
+# trivia
 
-The Flutter project is generated here via `flutter create` in the tooling session
-(doc 15 Phase 0, deferred: Flutter SDK + Android toolchain are not yet installed on
-the dev machine — decision 2026-06-12: develop against a physical Android device,
-SDKs to be installed on drive E:).
+A new Flutter project.
 
-Planned setup (do not hand-create these):
-- Flavors: `dev` / `staging` / `prod` selecting the Firebase project (doc 06 §8)
-- Min OS: Android 10 (API 29) / iOS 16 (doc 06 §1)
-- Layers: UI / pure-Dart domain / data (repositories → Firebase adapters) (doc 06 §2)
-- Generated API client from `packages/api_contract` (doc 07 §6)
+## Getting Started
+
+This project is a starting point for a Flutter application.
+
+A few resources to get you started if this is your first Flutter project:
+
+- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
+- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.

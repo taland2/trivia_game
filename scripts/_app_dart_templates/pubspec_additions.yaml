@@ -1,0 +1,25 @@
+# Additions to merge into app/pubspec.yaml after flutter create.
+# Phase 0: no Firebase deps yet (that's Phase 1 walking skeleton).
+# The app name, bundle ID and min SDK are set here; Firebase config is a Phase 1 step
+# that requires trivia-dev to exist and flutterfire configure to have run.
+#
+# Apply with: scripts\_apply_pubspec.ps1
+
+name: trivia
+description: Playful Hebrew-first multiplayer trivia for real friend groups.
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

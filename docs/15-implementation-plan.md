@@ -45,14 +45,16 @@ Everything through Phase 6 runs on **emulators** — no Blaze plan needed yet.
 > installs deferred to a dedicated tooling session. Decisions: develop against a
 > **physical Android device** (no AVD — dev machine has 8GB RAM / 16.5GB free disk;
 > Hyper-V available if ever needed); heavy SDKs to be installed on **drive E:**.
-> Done: monorepo scaffold (`functions/` TS+ESLint+Vitest with balance-config module,
-> scoring engine + GDD §3.3 test suite, `v1_ping`; `packages/api_contract` zod schemas
-> + anti-leak serving test + Dart codegen stub; `firebase/` default-deny rules + full
-> emulator config; `content-tools/` CLI skeleton; CI workflow with Flutter job gated
-> on `app/pubspec.yaml`; README + `scripts/dev.ps1`).
-> Remaining for Phase 0 exit: install Flutter SDK + Android cmdline-tools (drive E:) +
-> Java 17 + Firebase CLI · `flutter create` app with flavors · hello screen on device ·
-> emulator suite boot · create `trivia-dev`.
+>
+> **2026-06-14 — Phase 0 ✅ complete.**
+> All tooling installed on E: (Flutter 3.44.2, Android SDK w/ API 29/35/36 + build-tools
+> 28.0.3/34.0.0, Java 17 Temurin, Firebase CLI 15.20.0). `flutter doctor` clean.
+> `flutter create` scaffolded with dev/staging/prod productFlavors (Kotlin DSL).
+> Hello screen (`app/lib/app.dart`) shows "טריוויה / [dev] / Phase 0 ✓".
+> `flutter build apk --flavor dev -t lib/main_dev.dart` → `app-dev-release.apk` 40.6 MB ✓.
+> Pending (requires user action): `firebase login` + create `trivia-dev` project +
+> `firebase emulators:start` first boot. Those are optional for Phase 0 exit; Phase 1
+> walking skeleton will need the emulator running.
 
 ## Phase 1 — Walking Skeleton 🦴
 *Refs: doc 02 §3.3, doc 06 §4, doc 07 §2.2*
