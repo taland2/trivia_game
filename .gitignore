@@ -3,8 +3,9 @@ node_modules/
 *.log
 .npm/
 
-# Build outputs
-lib/
+# Build outputs (functions/lib = tsc output; app/lib is source — NOT ignored)
+functions/lib/
+packages/*/lib/
 dist/
 build/
 coverage/

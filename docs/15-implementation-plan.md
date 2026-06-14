@@ -68,6 +68,17 @@ One hardcoded seeded question. Ugly is fine. Includes: idempotency key plumbing,
 **Exit checkpoint:** tap an answer, the score comes back **from the server** with the
 speed bonus visibly varying by answer time.
 
+> **2026-06-14 — Phase 1 ✅ complete.**
+> Server: `v1_serveQuestion` (hardcoded Hebrew seed question, stores correctIx in
+> `servingsPrivate/{matchId}_0_0`), `v1_submitAnswer` (validates via `SubmitAnswerRequestSchema`,
+> server-authoritative timing, idempotency key, scoring via existing engine).
+> Client: `QuestionScreen` — anonymous sign-in, calls serveQuestion → visual countdown
+> (display-only; server clock authoritative) → submitAnswer → shows ✓/✗ + points.
+> Anti-leak: correct answer never in serving payload (`ServingSchema.strict()` + function-only
+> `servingsPrivate` collection). 24 unit tests still green.
+> **To test:** run `scripts/dev.ps1` (starts emulators + adb reverse), then
+> `flutter run --flavor dev -t lib/main_dev.dart`.
+
 ## Phase 2 — Full Round Engine
 *Refs: doc 02 §3, doc 03 §6, doc 08 servings split*
 
