@@ -62,7 +62,9 @@ export const v1_submitAnswer = onCall(async (request) => {
     speedBonusMax: balance.speedBonusMax,
   });
 
-  const result = { correctIx, points, roundDone: true };
+  // A round is 3 questions (qIx 0, 1, 2) — GDD §4.1.
+  // roundDone signals the client to show the round result screen.
+  const result = { correctIx, points, roundDone: qIx === 2 };
 
   // Cache for idempotent replays. TTL cleanup arrives in Phase 4.
   await db

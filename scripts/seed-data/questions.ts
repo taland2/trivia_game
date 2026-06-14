@@ -1,0 +1,873 @@
+// Dev-seed questions — Phase 2 bootstrap. All marked source:"dev-seed".
+// These are UNREVIEWED and will be replaced by approved content in Phase 10.
+// 8 categories × 3 difficulties × 2 languages ≈ 96 questions total.
+//
+// correctIx refers to the correct answer in the `answers` array BEFORE shuffling.
+// The serving engine (questionBank.ts) shuffles answer order on each serve.
+
+export type SeedDifficulty = "easy" | "medium" | "hard";
+export type SeedLanguage = "he" | "en";
+
+export interface SeedQuestion {
+  text: string;
+  answers: [string, string, string, string];
+  correctIx: 0 | 1 | 2 | 3;
+  difficulty: SeedDifficulty;
+  language: SeedLanguage;
+  category: string;
+}
+
+export const SEED_QUESTIONS: SeedQuestion[] = [
+  // ──────────────────────────────────────────────────────────
+  // HE — general_knowledge
+  // ──────────────────────────────────────────────────────────
+  {
+    text: "מהו הצבע הנפוץ ביותר בדגלי מדינות העולם?",
+    answers: ["אדום", "כחול", "ירוק", "לבן"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "general_knowledge",
+  },
+  {
+    text: "כמה ימים יש בשנה שאינה מעוברת?",
+    answers: ["365", "366", "364", "360"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "general_knowledge",
+  },
+  {
+    text: "מהו הכוכב הקרוב ביותר לכדור הארץ מלבד השמש?",
+    answers: ["פרוקסימה קנטאורי", "סיריוס", "ואגה", "אלטאיר"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "general_knowledge",
+  },
+  {
+    text: "כמה שפות רשמיות יש לשוויץ?",
+    answers: ["4", "3", "2", "5"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "general_knowledge",
+  },
+  {
+    text: "מהו היסוד הכימי עם המספר האטומי 79?",
+    answers: ["זהב", "כסף", "פלטינה", "נחושת"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "general_knowledge",
+  },
+  {
+    text: "בן כמה היה מוצרט כאשר כתב את הסימפוניה הראשונה שלו?",
+    answers: ["8", "12", "6", "10"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "general_knowledge",
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // HE — sports
+  // ──────────────────────────────────────────────────────────
+  {
+    text: "כמה שחקנים של כל קבוצה נמצאים על מגרש הכדורגל בכל עת?",
+    answers: ["11", "10", "12", "9"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "sports",
+  },
+  {
+    text: "כמה נקודות מקבלים על טאצ'-דאון בכדורגל אמריקאי?",
+    answers: ["6", "3", "7", "4"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "sports",
+  },
+  {
+    text: "באיזו עיר נערכו אולימפיאדת הקיץ 2020 (שהתקיימה ב-2021)?",
+    answers: ["טוקיו", "פריז", "לונדון", "ריו דה ז'ניירו"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "sports",
+  },
+  {
+    text: "כמה תארי גרנד-סלאם כבש נובק ג'וקוביץ' נכון לסוף 2023?",
+    answers: ["24", "22", "20", "23"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "sports",
+  },
+  {
+    text: "מי מחזיקה בשיא העולם בריצת 100 מטר לנשים (10.49 שניות)?",
+    answers: [
+      "פלורנס גריפית'-ג'וינר",
+      "שלי-אן פרייזר-פרייס",
+      "עלייה אלי",
+      "מרלין אוטי",
+    ],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "sports",
+  },
+  {
+    text: "באיזה ספורט מחזיקה ישראל במדליית זהב אולימפית היסטורית ראשונה (2021)?",
+    answers: ["ג'ודו", "שחייה", "גלישה", "רכיבה אומנותית"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "sports",
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // HE — movies_tv
+  // ──────────────────────────────────────────────────────────
+  {
+    text: "מי ביים את הסרט 'שינדלר'ס ליסט'?",
+    answers: ["סטיבן ספילברג", "מרטין סקורסזה", "רידלי סקוט", "ג'יימס קמרון"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "movies_tv",
+  },
+  {
+    text: "מי כיכב בתפקיד ג'ק דוסון בסרט 'טיטאניק' (1997)?",
+    answers: ["ליאונרדו דיקפריו", "ברד פיט", "מאט דיימון", "ג'וני דפ"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "movies_tv",
+  },
+  {
+    text: "כמה סרטים עיקריים יש בטרילוגיית 'שר הטבעות' של פיטר ג'קסון?",
+    answers: ["3", "2", "4", "6"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "movies_tv",
+  },
+  {
+    text: "באיזה עיר אמריקאית מתרחשת עלילת הסדרה 'The Wire'?",
+    answers: ["בולטימור", "ניו יורק", "שיקגו", "לוס אנג'לס"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "movies_tv",
+  },
+  {
+    text: "מי זכה בפרס אוסקר לבמאי הטוב ביותר על הסרט 'פרזיטים' (2019)?",
+    answers: ["בונג ג'ון-הו", "מרטין סקורסזה", "סם מנדס", "קוונטין טרנטינו"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "movies_tv",
+  },
+  {
+    text: "באיזו שנה יצא לאקרנים הסרט '2001: A Space Odyssey' של קובריק?",
+    answers: ["1968", "1972", "1965", "1970"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "movies_tv",
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // HE — music
+  // ──────────────────────────────────────────────────────────
+  {
+    text: "כמה חברים היו בהרכב 'הביטלס'?",
+    answers: ["4", "3", "5", "2"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "music",
+  },
+  {
+    text: "מי כתב את הסימפוניה התשיעית הכוללת את 'שמחה לעולם'?",
+    answers: ["בטהובן", "מוצרט", "שופן", "בראמס"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "music",
+  },
+  {
+    text: "באיזו מדינה נולד פרדי מרקורי (מוקאן)?",
+    answers: ["זנזיבר / טנזניה", "אנגליה", "הודו", "פקיסטן"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "music",
+  },
+  {
+    text: "מהו האלבום הנמכר ביותר בהיסטוריה?",
+    answers: [
+      "Thriller — מייקל ג'קסון",
+      "Back in Black — AC/DC",
+      "The Dark Side of the Moon — פינק פלויד",
+      "Led Zeppelin IV",
+    ],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "music",
+  },
+  {
+    text: "כמה סימפוניות כתב יוהאנס ברהמס?",
+    answers: ["4", "9", "5", "6"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "music",
+  },
+  {
+    text: "באיזו שנה נוסדה להקת 'לד זפלין'?",
+    answers: ["1968", "1970", "1965", "1972"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "music",
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // HE — science_tech
+  // ──────────────────────────────────────────────────────────
+  {
+    text: "מהי הפלנטה הקרובה ביותר לשמש?",
+    answers: ["מרקורי", "ונוס", "מאדים", "כדור הארץ"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "science_tech",
+  },
+  {
+    text: "מהי הנוסחה הכימית של מים?",
+    answers: ["H₂O", "CO₂", "O₂", "H₂"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "science_tech",
+  },
+  {
+    text: "כמה כרומוזומים יש בתא אנושי רגיל (דיפלואידי)?",
+    answers: ["46", "48", "44", "23"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "science_tech",
+  },
+  {
+    text: "מהו גיל כדור הארץ בקירוב (במיליארדי שנים)?",
+    answers: ["4.5", "2.5", "6.5", "3.5"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "science_tech",
+  },
+  {
+    text: "מה מהירות האור בריק (בקירוב)?",
+    answers: [
+      "300,000 ק\"מ בשנייה",
+      "150,000 ק\"מ בשנייה",
+      "450,000 ק\"מ בשנייה",
+      "200,000 ק\"מ בשנייה",
+    ],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "science_tech",
+  },
+  {
+    text: "מה הוא עקרון אי-הוודאות של היינזנברג?",
+    answers: [
+      "לא ניתן לדעת במדויק גם מיקום וגם תנע של חלקיק בו-זמנית",
+      "האור מתנהג גם כגל וגם כחלקיק",
+      "מסה ואנרגיה שקולות",
+      "שני אלקטרונים לא יכולים להיות באותו מצב קוונטי",
+    ],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "science_tech",
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // HE — history
+  // ──────────────────────────────────────────────────────────
+  {
+    text: "באיזו שנה קמה מדינת ישראל?",
+    answers: ["1948", "1947", "1950", "1945"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "history",
+  },
+  {
+    text: "מי הביס את נפוליאון בקרב ווטרלו ב-1815?",
+    answers: [
+      "הצבא הבריטי והפרוסי",
+      "הצבא הרוסי",
+      "הצבא האוסטרי",
+      "הצבא הספרדי",
+    ],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "history",
+  },
+  {
+    text: "כמה שנים ארכה למעשה 'מלחמת מאה השנים' בין צרפת לאנגליה?",
+    answers: ["116", "100", "87", "125"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "history",
+  },
+  {
+    text: "מי היה ראש ממשלת בריטניה בשיאה של מלחמת העולם השנייה?",
+    answers: [
+      "וינסטון צ'רצ'יל",
+      "נוויל צ'מברליין",
+      "קלמנט אטלי",
+      "אנתוני אידן",
+    ],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "history",
+  },
+  {
+    text: "מי היה הקיסר הרומי הראשון?",
+    answers: ["אוגוסטוס", "יוליוס קיסר", "קלאודיוס", "קליגולה"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "history",
+  },
+  {
+    text: "באיזו שנה נפלה החומה הברלינאית?",
+    answers: ["1989", "1991", "1987", "1990"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "history",
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // HE — geography
+  // ──────────────────────────────────────────────────────────
+  {
+    text: "מהי הבירה של אוסטרליה?",
+    answers: ["קנברה", "סידני", "מלבורן", "בריסביין"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "geography",
+  },
+  {
+    text: "מהו הנהר הארוך ביותר בעולם?",
+    answers: ["נילוס", "אמזונס", "מיסיסיפי", "יאנגצה"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "geography",
+  },
+  {
+    text: "מהי המדינה הקטנה ביותר בעולם?",
+    answers: ["ותיקן", "מונקו", "סן מרינו", "ליכטנשטיין"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "geography",
+  },
+  {
+    text: "כמה מדינות חולקות גבול עם ברזיל?",
+    answers: ["10", "8", "12", "9"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "geography",
+  },
+  {
+    text: "באיזו מדינה נמצאת הפסגה הגבוהה ביותר בדרום אמריקה (אקונקאגואה)?",
+    answers: ["ארגנטינה", "צ'ילה", "פרו", "בוליביה"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "geography",
+  },
+  {
+    text: "מהו האוקיינוס העמוק ביותר בעולם?",
+    answers: ["האוקיינוס השקט", "האוקיינוס ההודי", "האוקיינוס האטלנטי", "הים הקרי"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "geography",
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // HE — israel_local
+  // ──────────────────────────────────────────────────────────
+  {
+    text: "מי היה ראש הממשלה הראשון של מדינת ישראל?",
+    answers: ["דוד בן-גוריון", "משה שרת", "לוי אשכול", "גולדה מאיר"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "israel_local",
+  },
+  {
+    text: "מהו הנהר הארוך ביותר בישראל?",
+    answers: ["הירדן", "הירקון", "הקישון", "הגעתון"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "he",
+    category: "israel_local",
+  },
+  {
+    text: "מתי החלה מלחמת יום הכיפורים?",
+    answers: ["אוקטובר 1973", "ספטמבר 1973", "אוקטובר 1967", "יוני 1967"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "israel_local",
+  },
+  {
+    text: "כיצד נקרא המבצע שבמסגרתו עלו יהודי אתיופיה לישראל ב-1991?",
+    answers: ["מבצע שלמה", "מבצע משה", "מבצע יונתן", "מבצע שושנה"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "he",
+    category: "israel_local",
+  },
+  {
+    text: "כמה חברי כנסת יש בפרלמנט הישראלי?",
+    answers: ["120", "100", "150", "110"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "israel_local",
+  },
+  {
+    text: "מה היה שם הארגון הצבאי הציוני הראשי שפעל בתקופת המנדט הבריטי?",
+    answers: ["ההגנה", "האירגון", "לח\"י", "הפלמ\"ח"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "he",
+    category: "israel_local",
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // EN — general_knowledge
+  // ══════════════════════════════════════════════════════════
+  {
+    text: "How many sides does a hexagon have?",
+    answers: ["6", "5", "7", "8"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "general_knowledge",
+  },
+  {
+    text: "What color is produced by mixing red and blue?",
+    answers: ["Purple", "Green", "Orange", "Brown"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "general_knowledge",
+  },
+  {
+    text: "What is the chemical symbol for gold?",
+    answers: ["Au", "Ag", "Go", "Gd"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "general_knowledge",
+  },
+  {
+    text: "How many bones are in the adult human body?",
+    answers: ["206", "208", "196", "212"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "general_knowledge",
+  },
+  {
+    text: "What is the most abundant gas in Earth's atmosphere?",
+    answers: ["Nitrogen", "Oxygen", "Carbon Dioxide", "Argon"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "general_knowledge",
+  },
+  {
+    text: "In what year did the first moon landing take place?",
+    answers: ["1969", "1968", "1972", "1971"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "general_knowledge",
+  },
+
+  // EN — sports
+  {
+    text: "How many players are on the court per team in basketball?",
+    answers: ["5", "6", "4", "7"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "sports",
+  },
+  {
+    text: "How long is a standard marathon race?",
+    answers: ["42.195 km", "40 km", "45 km", "26 km"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "sports",
+  },
+  {
+    text: "Which country hosted the 2018 FIFA World Cup?",
+    answers: ["Russia", "Brazil", "Germany", "Qatar"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "sports",
+  },
+  {
+    text: "In what year did Michael Jordan play his last NBA game?",
+    answers: ["2003", "2001", "2005", "1999"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "sports",
+  },
+  {
+    text: "Who holds the record for most Olympic gold medals overall?",
+    answers: ["Michael Phelps", "Usain Bolt", "Carl Lewis", "Mark Spitz"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "sports",
+  },
+  {
+    text: "In what year were the first modern Olympic Games held?",
+    answers: ["1896", "1900", "1892", "1904"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "sports",
+  },
+
+  // EN — movies_tv
+  {
+    text: "Who played Iron Man in the Marvel Cinematic Universe?",
+    answers: ["Robert Downey Jr.", "Chris Evans", "Mark Ruffalo", "Chris Hemsworth"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "movies_tv",
+  },
+  {
+    text: "What animated movie features the song 'Let It Go'?",
+    answers: ["Frozen", "Tangled", "Brave", "Moana"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "movies_tv",
+  },
+  {
+    text: "Who directed 'Pulp Fiction' (1994)?",
+    answers: ["Quentin Tarantino", "Martin Scorsese", "David Fincher", "Ridley Scott"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "movies_tv",
+  },
+  {
+    text: "In what year was 'The Godfather' released?",
+    answers: ["1972", "1974", "1970", "1968"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "movies_tv",
+  },
+  {
+    text: "Which film won the very first Academy Award for Best Picture?",
+    answers: ["Wings", "Sunrise", "The Jazz Singer", "Seventh Heaven"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "movies_tv",
+  },
+  {
+    text: "Who composed the score for 'Schindler's List'?",
+    answers: ["John Williams", "Hans Zimmer", "Ennio Morricone", "Howard Shore"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "movies_tv",
+  },
+
+  // EN — music
+  {
+    text: "How many strings does a standard acoustic guitar have?",
+    answers: ["6", "4", "7", "8"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "music",
+  },
+  {
+    text: "What is the highest female singing voice?",
+    answers: ["Soprano", "Mezzo-soprano", "Alto", "Contralto"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "music",
+  },
+  {
+    text: "In which city did The Beatles form?",
+    answers: ["Liverpool", "London", "Manchester", "Birmingham"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "music",
+  },
+  {
+    text: "Who composed 'The Four Seasons'?",
+    answers: ["Vivaldi", "Bach", "Handel", "Telemann"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "music",
+  },
+  {
+    text: "How many symphonies did Ludwig van Beethoven compose?",
+    answers: ["9", "7", "11", "6"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "music",
+  },
+  {
+    text: "Which band released the album 'Dark Side of the Moon' in 1973?",
+    answers: ["Pink Floyd", "Led Zeppelin", "The Rolling Stones", "The Who"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "music",
+  },
+
+  // EN — science_tech
+  {
+    text: "What planet is known as the Red Planet?",
+    answers: ["Mars", "Venus", "Jupiter", "Saturn"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "science_tech",
+  },
+  {
+    text: "What is the hardest natural substance?",
+    answers: ["Diamond", "Quartz", "Topaz", "Corundum"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "science_tech",
+  },
+  {
+    text: "What does DNA stand for?",
+    answers: [
+      "Deoxyribonucleic acid",
+      "Dinitrogen acid",
+      "Deoxyribose nucleotide",
+      "Dynamic nucleic acid",
+    ],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "science_tech",
+  },
+  {
+    text: "How many elements are in the periodic table as of 2024?",
+    answers: ["118", "112", "120", "116"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "science_tech",
+  },
+  {
+    text: "What particle has no mass and travels at the speed of light?",
+    answers: ["Photon", "Electron", "Neutron", "Neutrino"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "science_tech",
+  },
+  {
+    text: "What is the approximate temperature at the core of the Sun?",
+    answers: ["15 million °C", "5,500 °C", "1 million °C", "100 million °C"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "science_tech",
+  },
+
+  // EN — history
+  {
+    text: "Who was the first President of the United States?",
+    answers: ["George Washington", "John Adams", "Thomas Jefferson", "Benjamin Franklin"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "history",
+  },
+  {
+    text: "In what year did World War II end?",
+    answers: ["1945", "1944", "1946", "1943"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "history",
+  },
+  {
+    text: "What empire was built by Genghis Khan?",
+    answers: ["Mongol Empire", "Ottoman Empire", "Byzantine Empire", "Persian Empire"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "history",
+  },
+  {
+    text: "Who was the first woman to win a Nobel Prize?",
+    answers: ["Marie Curie", "Rosalind Franklin", "Lise Meitner", "Dorothy Hodgkin"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "history",
+  },
+  {
+    text: "In what year did the French Revolution begin?",
+    answers: ["1789", "1776", "1793", "1799"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "history",
+  },
+  {
+    text: "Who was the last ruling pharaoh of ancient Egypt?",
+    answers: ["Cleopatra VII", "Nefertiti", "Hatshepsut", "Ramesses II"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "history",
+  },
+
+  // EN — geography
+  {
+    text: "What is the capital city of France?",
+    answers: ["Paris", "Lyon", "Marseille", "Bordeaux"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "geography",
+  },
+  {
+    text: "What is the longest river in the world?",
+    answers: ["Nile", "Amazon", "Mississippi", "Yangtze"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "geography",
+  },
+  {
+    text: "Which country has the most natural lakes?",
+    answers: ["Canada", "Russia", "United States", "Finland"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "geography",
+  },
+  {
+    text: "What is the smallest continent by land area?",
+    answers: ["Australia", "Europe", "Antarctica", "South America"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "geography",
+  },
+  {
+    text: "What is the name of the deepest lake in the world?",
+    answers: ["Lake Baikal", "Lake Tanganyika", "Caspian Sea", "Lake Superior"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "geography",
+  },
+  {
+    text: "In which mountain range is Mount Everest located?",
+    answers: ["Himalayas", "Karakoram", "Hindu Kush", "Pamir"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "geography",
+  },
+
+  // EN — israel_local
+  {
+    text: "What is the capital of Israel?",
+    answers: ["Jerusalem", "Tel Aviv", "Haifa", "Beer Sheva"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "israel_local",
+  },
+  {
+    text: "What language is primarily spoken in Israel?",
+    answers: ["Hebrew", "Arabic", "Yiddish", "Aramaic"],
+    correctIx: 0,
+    difficulty: "easy",
+    language: "en",
+    category: "israel_local",
+  },
+  {
+    text: "What is the name of Israel's national airline?",
+    answers: ["El Al", "Arkia", "Israir", "Flydubai"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "israel_local",
+  },
+  {
+    text: "In what year did Israel win the Eurovision Song Contest for the first time?",
+    answers: ["1978", "1982", "1973", "1986"],
+    correctIx: 0,
+    difficulty: "medium",
+    language: "en",
+    category: "israel_local",
+  },
+  {
+    text: "What is the name of the ancient fortress where Jewish rebels made their last stand in 73 CE?",
+    answers: ["Masada", "Gamla", "Herodion", "Antonia"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "israel_local",
+  },
+  {
+    text: "What sea borders Israel to the west?",
+    answers: ["Mediterranean Sea", "Red Sea", "Dead Sea", "Sea of Galilee"],
+    correctIx: 0,
+    difficulty: "hard",
+    language: "en",
+    category: "israel_local",
+  },
+];

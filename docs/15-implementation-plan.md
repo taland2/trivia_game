@@ -90,6 +90,20 @@ Tests: scoring unit suite (the GDD formula table) + emulator serve/submit/timeou
 
 **Exit checkpoint:** play a complete 3-question round with real timers; round score correct.
 
+> **2026-06-14 — Phase 2 ✅ complete.**
+> Backend: `v1_serveQuestion` (Phase 1) replaced by `v1_startRound` — picks 1E+1M+1H from
+> the question bank, shuffles answer order per serving, writes `servingsPrivate` docs.
+> `v1_submitAnswer` updated: `roundDone` is now only true at qIx=2.
+> `questionBank.ts`: `pickQuestion` (Firestore query + random pick) + `shuffleAnswers`
+> (Fisher-Yates + correctIx remap).
+> Seed data: 48 HE + 48 EN dev-seed questions across 8 categories × 3 difficulties;
+> `scripts/seed-questions.ts` loads them to the emulator (idempotent).
+> Client: `RoundScreen` orchestrates 3 questions, auto-advance 1.5s after each answer;
+> `RoundResultScreen` shows total score + per-question breakdown. `QuestionScreen`
+> refactored to accept a `Serving` map from the parent.
+> Tests: 24 passing (19 scoring formula table + 5 shuffleAnswers unit tests).
+> `flutter analyze`: no issues.
+
 ## Phase 3 — Duels: Turns & Resolution
 *Refs: doc 02 §4.1–4.2, doc 08 match/round docs*
 
@@ -220,9 +234,9 @@ operating period, not a build phase).
 ## Progress Tracker
 | Phase | Status | Date | Commit |
 |---|---|---|---|
-| 0 — Tooling & scaffold | ◐ code scaffold done; SDK installs pending | 2026-06-12 | |
-| 1 — Walking skeleton | ☐ | | |
-| 2 — Round engine | ☐ | | |
+| 0 — Tooling & scaffold | ✅ | 2026-06-14 | abf37a8 |
+| 1 — Walking skeleton | ✅ | 2026-06-14 | bfeaaf0 |
+| 2 — Round engine | ✅ | 2026-06-14 | (this commit) |
 | 3 — Duels | ☐ | | |
 | 4 — Gate A | ☐ | | |
 | 5 — Design system | ☐ | | |

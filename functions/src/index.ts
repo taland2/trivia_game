@@ -4,5 +4,5 @@ import { setGlobalOptions } from "firebase-functions/v2";
 setGlobalOptions({ region: "me-west1" });
 
 export { v1_ping } from "./ping.js";
-export { v1_serveQuestion } from "./serve/serveQuestion.js";
+export { v1_startRound } from "./serve/startRound.js";
 export { v1_submitAnswer } from "./match/submitAnswer.js";

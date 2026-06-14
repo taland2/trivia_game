@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'question_screen.dart';
-
-export 'question_screen.dart';
+import 'round_screen.dart';
 
 enum AppFlavor { dev, staging, prod }
 
@@ -18,7 +16,7 @@ class TriviaApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6C63FF)),
         useMaterial3: true,
       ),
-      home: const QuestionScreen(),
+      home: const RoundScreen(),
     );
   }
 }

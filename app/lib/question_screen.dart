@@ -1,42 +1,65 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-// Walking skeleton (Phase 1): one question from the server, tap an answer,
-// get correctIx + points back. No match state, no real timer enforcement —
-// server clock is authoritative (doc 06 §4); the countdown here is display-only.
+// A single question card: shows question text, 4 answers, a visual countdown,
+// and calls v1_submitAnswer when the user taps or time runs out.
+//
+// The widget is stateless about round context — RoundScreen owns the serving
+// list and wires the callbacks. QuestionScreen handles only one question at a time.
 class QuestionScreen extends StatefulWidget {
-  const QuestionScreen({super.key});
+  const QuestionScreen({
+    super.key,
+    required this.matchId,
+    required this.serving,
+    required this.questionNumber,
+    required this.totalQuestions,
+    required this.onResult,
+  });
+
+  final String matchId;
+  final Map<String, dynamic> serving;
+
+  // 1-based index shown to the user (e.g. "שאלה 2/3").
+  final int questionNumber;
+  final int totalQuestions;
+
+  // Called with (correctIx, points, roundDone) after the server responds.
+  final void Function(int correctIx, int points, bool roundDone) onResult;
 
   @override
   State<QuestionScreen> createState() => _QuestionScreenState();
 }
 
 class _QuestionScreenState extends State<QuestionScreen> {
-  // ---- state ----
-  bool _loading = true;
-  String? _error;
-
-  String? _matchId;
-  String? _text;
-  List<String> _answers = [];
-  int _timeLimitMs = 10000;
-
   int? _selectedIx;
   int? _correctIx;
   int? _points;
+  String? _error;
 
-  // Visual-only countdown (server timing is authoritative).
+  late int _qIx;
+  late String _text;
+  late List<String> _answers;
+  late int _timeLimitMs;
+  late String _difficulty;
+
+  // Visual-only countdown (server clock is authoritative per doc 06 §4).
   late DateTime _servedAt;
   Timer? _ticker;
-  double _timerFraction = 1.0; // 1.0 = full, 0.0 = expired
+  double _timerFraction = 1.0;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    final s = widget.serving;
+    _qIx = (s['qIx'] as num).toInt();
+    _text = s['text'] as String;
+    _answers = List<String>.from(s['answers'] as List);
+    _timeLimitMs = (s['timeLimitMs'] as num).toInt();
+    _difficulty = s['difficulty'] as String;
+    _servedAt = DateTime.now();
+    _startVisualTimer();
   }
 
   @override
@@ -45,68 +68,42 @@ class _QuestionScreenState extends State<QuestionScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    try {
-      // Anonymous sign-in (guest-first per doc 05 §1).
-      final auth = FirebaseAuth.instance;
-      if (auth.currentUser == null) {
-        await auth.signInAnonymously();
-      }
-
-      final fn = FirebaseFunctions.instanceFor(region: 'me-west1');
-      final result = await fn.httpsCallable('v1_serveQuestion').call<Map>({});
-      final data = result.data as Map;
-      final serving = data['serving'] as Map;
-
-      setState(() {
-        _matchId = data['matchId'] as String;
-        _text = serving['text'] as String;
-        _answers = List<String>.from(serving['answers'] as List);
-        _timeLimitMs = (serving['timeLimitMs'] as num).toInt();
-        _loading = false;
-        _servedAt = DateTime.now();
-      });
-      _startVisualTimer();
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
-  }
-
   void _startVisualTimer() {
-    _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) {
+    _ticker = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (!mounted) return;
       final elapsed = DateTime.now().difference(_servedAt).inMilliseconds;
       final fraction = 1.0 - (elapsed / _timeLimitMs).clamp(0.0, 1.0);
       setState(() => _timerFraction = fraction);
       if (fraction <= 0) {
         _ticker?.cancel();
-        if (_selectedIx == null) _submitAnswer(null); // visual timeout
+        if (_selectedIx == null) _submitAnswer(null);
       }
     });
   }
 
   Future<void> _submitAnswer(int? answerIx) async {
-    if (_selectedIx != null || _matchId == null) return;
+    if (_selectedIx != null) return;
     _ticker?.cancel();
     setState(() => _selectedIx = answerIx ?? -1);
 
     try {
       final fn = FirebaseFunctions.instanceFor(region: 'me-west1');
       final result = await fn.httpsCallable('v1_submitAnswer').call<Map>({
-        'matchId': _matchId,
+        'matchId': widget.matchId,
         'roundIx': 0,
-        'qIx': 0,
+        'qIx': _qIx,
         'answerIx': answerIx,
         'idempotencyKey': _uuid(),
       });
-      final data = result.data as Map;
+      final data = result.data;
+      final correctIx = (data['correctIx'] as num).toInt();
+      final points = (data['points'] as num).toInt();
+      final roundDone = data['roundDone'] as bool? ?? false;
       setState(() {
-        _correctIx = (data['correctIx'] as num).toInt();
-        _points = (data['points'] as num).toInt();
+        _correctIx = correctIx;
+        _points = points;
       });
+      widget.onResult(correctIx, points, roundDone);
     } catch (e) {
       setState(() => _error = e.toString());
     }
@@ -114,89 +111,73 @@ class _QuestionScreenState extends State<QuestionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF6C63FF),
-        body: Center(child: CircularProgressIndicator(color: Colors.white)),
-      );
-    }
     if (_error != null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF6C63FF),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  _error!,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _loading = true;
-                      _error = null;
-                      _selectedIx = null;
-                      _correctIx = null;
-                      _points = null;
-                    });
-                    _load();
-                  },
-                  child: const Text('נסה שוב'),
-                ),
-              ],
-            ),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF6C63FF),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildTimer(),
-              const SizedBox(height: 24),
-              _buildQuestion(),
-              const SizedBox(height: 32),
-              ..._buildAnswers(),
-              if (_correctIx != null) ...[
-                const SizedBox(height: 32),
-                _buildResult(),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _loading = true;
-                      _error = null;
-                      _selectedIx = null;
-                      _correctIx = null;
-                      _points = null;
-                    });
-                    _load();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF6C63FF),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text('שאלה הבאה', style: TextStyle(fontSize: 16)),
-                ),
-              ],
-            ],
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 12),
+          _buildTimer(),
+          const SizedBox(height: 24),
+          _buildQuestion(),
+          const SizedBox(height: 32),
+          ..._buildAnswers(),
+          if (_correctIx != null) ...[
+            const SizedBox(height: 24),
+            _buildResult(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final diffLabel = switch (_difficulty) {
+      'easy' => 'קל',
+      'medium' => 'בינוני',
+      'hard' => 'קשה',
+      _ => _difficulty,
+    };
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          'שאלה ${widget.questionNumber}/${widget.totalQuestions}',
+          style: const TextStyle(color: Colors.white70, fontSize: 15),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(38),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            diffLabel,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -222,7 +203,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
-        _text ?? '',
+        _text,
         style: const TextStyle(
           color: Colors.white,
           fontSize: 22,
@@ -244,10 +225,11 @@ class _QuestionScreenState extends State<QuestionScreen> {
       if (answered) {
         if (i == _correctIx) {
           bg = Colors.green.shade600;
-          fg = Colors.white;
         } else if (i == _selectedIx) {
           bg = Colors.red.shade600;
-          fg = Colors.white;
+        } else {
+          bg = Colors.white.withAlpha(20);
+          fg = Colors.white54;
         }
       } else if (i == _selectedIx) {
         bg = Colors.white.withAlpha(77);
@@ -279,33 +261,23 @@ class _QuestionScreenState extends State<QuestionScreen> {
 
   Widget _buildResult() {
     final correct = _selectedIx == _correctIx;
-    return Column(
-      children: [
-        Text(
-          correct ? '✓ נכון!' : '✗ טעות',
-          style: TextStyle(
-            color: correct ? Colors.greenAccent : Colors.redAccent,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '+$_points נקודות',
-          style: const TextStyle(color: Colors.white, fontSize: 20),
-        ),
-      ],
+    return Text(
+      correct ? '✓  +$_points נקודות' : '✗  שגוי',
+      style: TextStyle(
+        color: correct ? Colors.greenAccent : Colors.redAccent,
+        fontSize: 22,
+        fontWeight: FontWeight.bold,
+      ),
+      textAlign: TextAlign.center,
     );
   }
 
-  // Minimal UUID v4 generator — avoids adding a package dependency.
   String _uuid() {
     final rng = Random.secure();
     final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    final hex =
-        bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
     return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
         '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
         '${hex.substring(20, 32)}';
