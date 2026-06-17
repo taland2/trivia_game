@@ -13,7 +13,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { SEED_QUESTIONS } from "./seed-data/questions.js";
 
 // Connect to the local emulator.
-process.env["FIRESTORE_EMULATOR_HOST"] = "127.0.0.1:8080";
+process.env["FIRESTORE_EMULATOR_HOST"] = "127.0.0.1:8088";
 
 initializeApp({ projectId: "trivia-dev" });
 const db = getFirestore();

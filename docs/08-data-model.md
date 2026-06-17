@@ -19,7 +19,8 @@ friendships/{pairId}             ← pairId = sorted "uidA_uidB"
 friendRequests/{id}
 invites/{code}
 matches/{matchId}
-  rounds/{roundIx}               ← function-written round state + recap projection
+  rounds/{roundIx}               ← function-only live round state (clients denied)
+  recaps/{roundIx}               ← participant-readable reveal projection (written when both done)
 questions/{questionId}           ← bank (NO client access)
 dailySets/{dayId}                ← curated daily (NO client access pre-publish)
 daily/{dayId}/friendScores/{uid} ← post-play visible projection
@@ -75,24 +76,41 @@ config/* (via Remote Config, not Firestore)
 }
 ```
 
-### `matches/{matchId}/rounds/{roundIx}`
+### `matches/{matchId}/rounds/{roundIx}` — **function-only** (clients denied)
 ```jsonc
 {
   "category": "science",
   "questionIds": ["q1","q2","q3"],       // refs only — bank is unreadable to clients
+  "difficulties": ["easy","medium","hard"],
+  "starterUid": "uidA",                  // players[roundIx % 2] (GDD §4.2 alternation)
   "perPlayer": {
     "uidA": {"done": true, "score": 412, "totalMs": 16780,
               "answers": [{"qIx":0,"answerIx":2,"correct":true,"points":141,"ms":4210}, ...]},
-    "uidB": {"done": false}
+    "uidB": {"done": false, "score": 0, "totalMs": 0, "answers": []}
   },
-  "revealReady": {"uidA": true, "uidB": false},  // rules gate: read own opponent detail only when both done (doc 06 §5)
   "winner": null | "uidA" | "shared",
   "isTiebreaker": false
 }
 ```
-**Reveal rule enforcement:** opponent `answers[]` are additionally copied into a
-`recap` field by the resolving function only when both players finish — security rules
-expose `recap`, never the live `perPlayer` of the other player.
+
+### `matches/{matchId}/recaps/{roundIx}` — **participant-readable reveal projection**
+```jsonc
+{
+  "roundIx": 2, "category": "science", "winner": "uidA" | "shared",
+  "players": [{"uid":"uidA","score":412,"totalMs":16780,
+               "answers":[{"qIx":0,"difficulty":"easy","correct":true,"points":141,"ms":4210}, ...]},
+              {"uid":"uidB", ...}],
+  "revealedAt": <ts>
+}
+```
+**Reveal rule enforcement (Phase 3 — corrects the original single-doc plan):**
+Firestore rules **cannot hide individual fields**, so the live round doc — which holds
+both players' in-progress `answers[]` and the question refs — is **function-only** (rules
+deny all client access). The resolving function writes a separate `recaps/{roundIx}` doc
+**only once both players are `done`**; rules expose that recap to participants. This is the
+doc's "separate doc wherever a hidden field is tempting" principle (above) applied to the
+opponent's answers. (The earlier draft proposed a `revealReady` map + a `recap` field on the
+round doc; that was unenforceable in rules and is superseded by this split.)
 
 ### `users/{uid}/servings/{servingId}`
 ```jsonc

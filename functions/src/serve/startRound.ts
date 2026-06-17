@@ -1,11 +1,13 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { Timestamp } from "firebase-admin/firestore";
 import { getFirestore } from "../firebase.js";
 import { getBalance } from "../config/balance.js";
-import { pickQuestion, shuffleAnswers } from "./questionBank.js";
-import type { Serving, Difficulty } from "@trivia/api-contract";
+import { StartRoundRequestSchema } from "@trivia/api-contract";
+import { FUNCTIONS_REGION } from "../config/region.js";
+import { pickQuestion, loadQuestions, type BankQuestion } from "./questionBank.js";
+import { serveRoundForPlayer, loadServedRound } from "./roundServing.js";
+import type { MatchDoc, RoundDoc } from "../match/types.js";
 
-// The 8 categories defined in GDD §3.4.
+// The 8 categories (GDD §3.4) — structural, not a ⚖️ balance value.
 const CATEGORIES = [
   "general_knowledge",
   "sports",
@@ -17,76 +19,105 @@ const CATEGORIES = [
   "israel_local",
 ] as const;
 
-// Round composition per GDD §4.1: exactly 1E + 1M + 1H, in escalating order.
-const ROUND_DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
-
-export const v1_startRound = onCall(async (request) => {
+export const v1_startRound = onCall({ region: FUNCTIONS_REGION }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Login required");
   const uid = request.auth.uid;
 
-  const data = (request.data ?? {}) as {
-    language?: string;
-    category?: string;
-  };
-
-  // Language defaults to "he" until the language-switch UI arrives in Phase 6.
-  const language = typeof data.language === "string" ? data.language : "he";
-
-  // Category: use the provided value or pick one at random (Phase 2 has no pick/spin/auto UI).
-  const category =
-    typeof data.category === "string" && data.category.length > 0
-      ? data.category
-      : CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)]!;
+  const parsed = StartRoundRequestSchema.safeParse(request.data);
+  if (!parsed.success) {
+    throw new HttpsError("invalid-argument", "Bad request", {
+      reason: "invalid-argument",
+      field: parsed.error.issues[0]?.path.join(".") ?? "unknown",
+    });
+  }
+  const { matchId } = parsed.data;
 
   const db = getFirestore();
   const balance = getBalance();
 
-  // Skeleton matchId — replaced by a real match document in Phase 3.
-  const matchId = db.collection("matches").doc().id;
-  const roundIx = 0;
+  const matchSnap = await db.doc(`matches/${matchId}`).get();
+  if (!matchSnap.exists) {
+    throw new HttpsError("not-found", "Match not found", { reason: "match" });
+  }
+  const match = matchSnap.data() as MatchDoc;
 
-  const usedQuestionIds: string[] = [];
-  const servings: Serving[] = [];
-
-  for (let qIx = 0; qIx < ROUND_DIFFICULTIES.length; qIx++) {
-    const difficulty = ROUND_DIFFICULTIES[qIx]!;
-    const { timeLimitMs } = balance.difficulties[difficulty];
-
-    const bankQ = await pickQuestion(db, {
-      language,
-      category,
-      difficulty,
-      excludeIds: usedQuestionIds,
+  if (!match.players.includes(uid)) {
+    throw new HttpsError("permission-denied", "Not a participant", {
+      reason: "not-participant",
     });
-
-    usedQuestionIds.push(bankQ.id);
-
-    // Shuffle answer order per player per serving (GDD §3.1 anti-memorization).
-    const shuffled = shuffleAnswers(bankQ);
-
-    const servingId = `${matchId}_${roundIx}_${qIx}`;
-
-    // The correct index after shuffling lives ONLY in servingsPrivate.
-    // Firestore security rules deny all client access to this collection.
-    await db.doc(`servingsPrivate/${servingId}`).set({
-      correctIx: shuffled.correctIx,
-      servedAt: Timestamp.now(),
-      uid,
-      timeLimitMs,
-      difficulty,
-      questionId: bankQ.id,
+  }
+  if (match.state !== "active") {
+    throw new HttpsError("failed-precondition", "Match is over", {
+      reason: "match-finished",
     });
-
-    const serving: Serving = {
-      servingId,
-      qIx,
-      difficulty,
-      timeLimitMs,
-      text: shuffled.text,
-      answers: shuffled.answers,
-    };
-    servings.push(serving);
+  }
+  if (match.turnUid !== uid) {
+    throw new HttpsError("failed-precondition", "Not your turn", {
+      reason: "not-your-turn",
+    });
   }
 
-  return { matchId, roundIx, category, servings };
+  const roundIx = match.currentRound;
+  const composition = balance.match.roundComposition;
+  const roundRef = db.doc(`matches/${matchId}/rounds/${roundIx}`);
+
+  // Idempotent replay: if this player was already served this round, return the
+  // identical servings without resetting the scoring clock (anti-cheat).
+  const alreadyServed = await loadServedRound(db, {
+    matchId,
+    roundIx,
+    uid,
+    count: composition.length,
+  });
+  if (alreadyServed) {
+    const round = (await roundRef.get()).data() as RoundDoc;
+    return { roundIx, category: round.category, servings: alreadyServed };
+  }
+
+  // Lock questions on first serve (GDD §4.1); the second player reuses them.
+  const roundSnap = await roundRef.get();
+  let category: string;
+  let questions: BankQuestion[];
+
+  if (roundSnap.exists) {
+    const round = roundSnap.data() as RoundDoc;
+    category = round.category;
+    questions = await loadQuestions(db, round.questionIds);
+  } else {
+    // Phase 3: a single random category per round. Modes pick/spin/auto land in
+    // Phase 4; until then `categoryId` from the request is ignored.
+    category = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)]!;
+    const used: string[] = [];
+    questions = [];
+    for (const difficulty of composition) {
+      const q = await pickQuestion(db, {
+        language: match.language,
+        category,
+        difficulty,
+        excludeIds: used,
+      });
+      used.push(q.id);
+      questions.push(q);
+    }
+
+    const round: RoundDoc = {
+      category,
+      questionIds: questions.map((q) => q.id),
+      difficulties: questions.map((q) => q.difficulty),
+      starterUid: match.players[roundIx % 2]!,
+      perPlayer: {},
+      winner: null,
+      isTiebreaker: false,
+    };
+    await roundRef.set(round);
+  }
+
+  const servings = await serveRoundForPlayer(db, {
+    matchId,
+    roundIx,
+    uid,
+    questions,
+  });
+
+  return { roundIx, category, servings };
 });

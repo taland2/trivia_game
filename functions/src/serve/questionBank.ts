@@ -80,3 +80,20 @@ export async function pickQuestion(
   const pick = candidates[Math.floor(Math.random() * candidates.length)]!;
   return pick;
 }
+
+// Load specific bank questions by id, preserving the requested order. Used when
+// the second player of a round must receive the SAME questions the starter
+// locked in (GDD §4.1 — questions locked at first serve).
+export async function loadQuestions(
+  db: Firestore,
+  ids: string[],
+): Promise<BankQuestion[]> {
+  const refs = ids.map((id) => db.collection("questions").doc(id));
+  const snaps = await db.getAll(...refs);
+  return snaps.map((s) => {
+    if (!s.exists) {
+      throw new Error(`Locked question ${s.id} no longer exists in the bank`);
+    }
+    return { id: s.id, ...s.data() } as BankQuestion;
+  });
+}

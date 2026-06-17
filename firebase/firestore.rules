@@ -3,9 +3,44 @@ rules_version = '2';
 // Default-deny baseline (doc 09 rules policy).
 // Every allowed read/write is added explicitly, per collection, with tests in the
 // rules matrix (doc 12 §1). Integrity writes never appear here — they go through
-// Cloud Functions only (doc 06 §4).
+// Cloud Functions only (doc 06 §4). No `allow write` rule exists anywhere below:
+// matches, rounds, recaps, matchList, servings and questions are all
+// function-written, so clients get read access only where it is safe.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isParticipant(players) {
+      return request.auth != null && request.auth.uid in players;
+    }
+
+    // Match state visible to its two players. Carries no unanswered-answer data
+    // (doc 08 §2), so live exposure is safe.
+    match /matches/{matchId} {
+      allow read: if isParticipant(resource.data.players);
+
+      // Per-round live state (locked question refs + both players' in-progress
+      // answers) is FUNCTION-ONLY — exposing it would leak the opponent's answers
+      // before the reveal and the correct-answer refs (guardrail #2). Deny.
+      match /rounds/{roundIx} {
+        allow read, write: if false;
+      }
+
+      // Reveal projection — written by the resolver only once both players finish
+      // (doc 08 §2). Readable by either participant.
+      match /recaps/{roundIx} {
+        allow read: if isParticipant(
+          get(/databases/$(database)/documents/matches/$(matchId)).data.players
+        );
+      }
+    }
+
+    // Home-screen match cards — owner-readable projection.
+    match /users/{uid}/matchList/{matchId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Everything else (questions bank, servingsPrivate, idempotency, …) stays
+    // denied by this catch-all.
     match /{document=**} {
       allow read, write: if false;
     }

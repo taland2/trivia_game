@@ -115,6 +115,34 @@ double-submit, both-finish-same-second transaction, reveal-leak attempt via rule
 **Exit checkpoint:** two emulator accounts complete a full duel including round-by-round
 comparison reveal.
 
+> **2026-06-17 — Phase 3 ✅ complete.** Backend-only (duel UI deferred to Phase 6 per user
+> decision); the exit checkpoint is proven by a functions emulator integration suite driving
+> two anonymous users through a full duel.
+> Backend: `v1_createDuel` (match + both players' `matchList`), `v1_startRound` rewritten to
+> be match-aware (turn-enforced, locks `questionIds` on first serve, idempotent per-player
+> servings keyed `${matchId}_${roundIx}_${qIx}_${uid}`), `v1_submitAnswer` rewritten to
+> record answers into `rounds/{roundIx}.perPlayer` and **transactionally** resolve the round
+> (winner by score → total-time tiebreak), write the `recaps/{roundIx}` reveal, advance/flip
+> turn, and resolve the match at 3 round wins. `v1_acceptRematch` (roles swapped). Pure
+> `resolveRound` helper (round/match winner). Match-structure ⚖️ values moved to
+> `config/balance.ts` (`roundsToWin`/`maxRounds`/`roundComposition`).
+> Reveal rule: live `rounds/*` is function-only; `recaps/*` is the participant-readable
+> projection written only when both finish — **doc 08 §2 updated** (the original single-doc
+> `revealReady`+`recap` plan was unenforceable in Firestore rules). `firestore.rules` now
+> grants participant reads on `matches/*` + `recaps/*` and owner reads on `matchList/*`;
+> everything else stays default-deny.
+> **Region bug fixed:** ESM `export … from` re-exports in `index.ts` are hoisted before
+> `setGlobalOptions({region})`, so callables were silently registered at `us-central1`.
+> Region is now set per function via `onCall({ region })` (`config/region.ts`).
+> Tests: 29 functions unit (incl. 5 `resolveRound`) + 16 api_contract + **13 emulator**
+> (7 duel integration: full 3-0 duel, not-your-turn, idempotent/already-answered,
+> reveal-leak, concurrent-final-answer resolves once, rematch; 6 rules matrix).
+> `npm run test:emulator` runs the emulator suite. `flutter analyze` clean (app untouched;
+> the Phase-2 solo `RoundScreen` is now dormant — real duel UI lands in Phase 6).
+> **Tooling:** installed JDK 21 at `E:\dev\java\21` (firebase-tools 15.20 needs JDK 21+);
+> moved the Firestore emulator to **port 8088** (8080 is held by `PEMHTTPD-x64`, EnterpriseDB
+> PEM's Apache) — updated `firebase.json`, `dev.ps1`, `seed-questions.ts`.
+
 ## Phase 4 — Full Duel Rules → **GATE A** 🎯
 *Refs: doc 02 §4.3–4.8, §7–8 (engine side), doc 11 Gate A*
 

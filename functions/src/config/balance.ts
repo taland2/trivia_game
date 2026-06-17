@@ -10,6 +10,16 @@ export interface DifficultyBalance {
   basePoints: number;
 }
 
+// Match-structure balance (GDD §4.1 ⚖️).
+export interface MatchBalance {
+  // Round wins needed to take the match (best-of-5 → 3).
+  roundsToWin: number;
+  // Hard cap on rounds played (best-of-5 → 5).
+  maxRounds: number;
+  // Question composition per round, in serve order (1 Easy + 1 Medium + 1 Hard).
+  roundComposition: Difficulty[];
+}
+
 export interface Balance {
   difficulties: Record<Difficulty, DifficultyBalance>;
   // Max speed bonus fraction: +50% for an instant answer, decaying linearly to 0
@@ -17,6 +27,7 @@ export interface Balance {
   speedBonusMax: number;
   // Network-delivery grace added server-side to each limit (doc 07 §2.2).
   servingGraceMs: number;
+  match: MatchBalance;
 }
 
 // GDD §3.2 / §3.3 initial values.
@@ -28,6 +39,11 @@ export const defaultBalance: Balance = {
   },
   speedBonusMax: 0.5,
   servingGraceMs: 1_500,
+  match: {
+    roundsToWin: 3,
+    maxRounds: 5,
+    roundComposition: ["easy", "medium", "hard"],
+  },
 };
 
 // TODO(Phase 1+): fetch the Remote Config server template per environment

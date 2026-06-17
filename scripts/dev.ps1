@@ -27,8 +27,8 @@ if (Get-Command adb -ErrorAction SilentlyContinue) {
     Write-Host 'Setting up adb reverse for physical device...' -ForegroundColor Cyan
     adb reverse tcp:9099 tcp:9099 2>$null
     adb reverse tcp:5001 tcp:5001 2>$null
-    adb reverse tcp:8080 tcp:8080 2>$null
-    Write-Host '  Auth :9099, Functions :5001, Firestore :8080 forwarded' -ForegroundColor Green
+    adb reverse tcp:8088 tcp:8088 2>$null
+    Write-Host '  Auth :9099, Functions :5001, Firestore :8088 forwarded' -ForegroundColor Green
 } else {
     Write-Warning 'adb not found — skipping port forwarding. Add android-sdk/platform-tools to PATH.'
 }

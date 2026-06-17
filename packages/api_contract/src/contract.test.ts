@@ -3,6 +3,11 @@ import {
   ServingSchema,
   SubmitAnswerRequestSchema,
   SubmitAnswerResponseSchema,
+  CreateDuelRequestSchema,
+  StartRoundRequestSchema,
+  StartRoundResponseSchema,
+  RoundResultSchema,
+  MatchResultSchema,
 } from "./index.js";
 
 const validServing = {
@@ -97,6 +102,122 @@ describe("SubmitAnswerResponseSchema", () => {
     ).toThrow();
     expect(() =>
       SubmitAnswerResponseSchema.parse({ correctIx: 1, points: 133.5 }),
+    ).toThrow();
+  });
+
+  it("accepts an embedded round/match result on the closing answer", () => {
+    const recapPlayer = (uid: string, score: number) => ({
+      uid,
+      score,
+      totalMs: 12000,
+      answers: [0, 1, 2].map((qIx) => ({
+        qIx,
+        difficulty: "easy" as const,
+        correct: true,
+        points: score / 3,
+        ms: 4000,
+      })),
+    });
+    const parsed = SubmitAnswerResponseSchema.parse({
+      correctIx: 2,
+      points: 150,
+      roundDone: true,
+      roundResult: {
+        roundIx: 0,
+        winner: "uidA",
+        players: [recapPlayer("uidA", 450), recapPlayer("uidB", 300)],
+      },
+      matchResult: {
+        winner: "uidA",
+        reason: "rounds",
+        finalScore: { uidA: 3, uidB: 1 },
+      },
+    });
+    expect(parsed.matchResult?.winner).toBe("uidA");
+  });
+});
+
+describe("CreateDuelRequestSchema", () => {
+  it("accepts opponent + category mode", () => {
+    expect(
+      CreateDuelRequestSchema.parse({ opponentUid: "u2", categoryMode: "spin" }),
+    ).toEqual({ opponentUid: "u2", categoryMode: "spin" });
+  });
+
+  it("rejects an unknown category mode and extra fields", () => {
+    expect(() =>
+      CreateDuelRequestSchema.parse({ opponentUid: "u2", categoryMode: "wat" }),
+    ).toThrow();
+    expect(() =>
+      CreateDuelRequestSchema.parse({
+        opponentUid: "u2",
+        categoryMode: "spin",
+        sneaky: true,
+      }),
+    ).toThrow();
+  });
+});
+
+describe("StartRoundRequestSchema / StartRoundResponseSchema", () => {
+  it("requires a matchId; categoryId is optional", () => {
+    expect(StartRoundRequestSchema.parse({ matchId: "m1" })).toEqual({
+      matchId: "m1",
+    });
+    expect(() => StartRoundRequestSchema.parse({})).toThrow();
+  });
+
+  it("requires exactly 3 servings and a round in 0..4", () => {
+    const serving = (qIx: number) => ({
+      servingId: `sv_${qIx}`,
+      qIx,
+      difficulty: "easy" as const,
+      timeLimitMs: 10000,
+      text: "Q?",
+      answers: ["A", "B", "C", "D"],
+    });
+    expect(
+      StartRoundResponseSchema.parse({
+        roundIx: 0,
+        category: "sports",
+        servings: [serving(0), serving(1), serving(2)],
+      }).servings,
+    ).toHaveLength(3);
+    expect(() =>
+      StartRoundResponseSchema.parse({
+        roundIx: 5,
+        category: "sports",
+        servings: [serving(0), serving(1), serving(2)],
+      }),
+    ).toThrow();
+  });
+});
+
+describe("RoundResultSchema / MatchResultSchema", () => {
+  it("allows a uid or 'shared' as the round winner", () => {
+    const players = ["uidA", "uidB"].map((uid) => ({
+      uid,
+      score: 300,
+      totalMs: 9000,
+      answers: [0, 1, 2].map((qIx) => ({
+        qIx,
+        difficulty: "medium" as const,
+        correct: false,
+        points: 0,
+        ms: 3000,
+      })),
+    }));
+    expect(
+      RoundResultSchema.parse({ roundIx: 1, winner: "shared", players }).winner,
+    ).toBe("shared");
+  });
+
+  it("constrains the match-result reason to the doc 08 enum", () => {
+    expect(() =>
+      MatchResultSchema.parse({
+        winner: "uidA",
+        reason: "rage_quit",
+        finalScore: { uidA: 3, uidB: 0 },
+      }),
     ).toThrow();
   });
 });
