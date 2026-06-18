@@ -6,14 +6,14 @@ real friend groups: async 1v1 duels, daily challenge, weekly friends leaderboard
 real-time modes, tournaments, and UGC packs. Solo product owner + AI-assisted development.
 
 ## Project status
-**Planning complete, no code yet.** The full spec suite lives in `docs/00`–`docs/14` and is
+**Planning complete** The full spec suite lives in `docs/00`–`docs/14` and is
 the **source of truth** — read the relevant doc before designing or implementing anything.
 **Execution follows `docs/15-implementation-plan.md`** — walking-skeleton phases, one phase
 per session, each ending playable + committed. Check its Progress Tracker for the current
 phase, and follow its Session Protocol at the start and end of every implementation session.
 
 ## Working conventions (user preferences — follow these)
-- **Chat with the user in Hebrew. All project artifacts (docs, code, comments, commits) in English.**
+- ** All project artifacts (docs, code, comments, commits) in English.**
 - Decisions are made by the user via `AskUserQuestion` rounds — present options with a
   recommended choice. Don't decide product questions unilaterally; don't re-litigate
   decisions already recorded in the docs without new evidence.
