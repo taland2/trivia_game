@@ -122,6 +122,9 @@ export const MatchResultSchema = z
     winner: z.string().min(1),
     reason: z.enum(["rounds", "tiebreak", "forfeit", "opponent_deleted"]),
     finalScore: z.record(z.string(), z.number().int().min(0)),
+    // Weekly points granted at resolution, per uid (GDD §7). Optional — present
+    // from Phase 4b onward (audit + a display hook for the result screen).
+    weeklyPointsAwarded: z.record(z.string(), z.number().int().min(0)).optional(),
   })
   .strict();
 export type MatchResult = z.infer<typeof MatchResultSchema>;

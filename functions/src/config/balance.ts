@@ -28,6 +28,32 @@ export interface ConcurrencyBalance {
   maxDuelsPerOpponent: number;
 }
 
+// Weekly friends-leaderboard point formulas (GDD §7 ⚖️).
+export interface WeeklyBalance {
+  // Flat points for a match win, before the score bonus (win = flat + score/divisor).
+  matchWinFlat: number;
+  // Divisor applied to a player's "match score" for the points bonus.
+  scoreDivisor: number;
+  // Flat points for winning by opponent forfeit (loser gets none).
+  forfeitWinFlat: number;
+}
+
+// XP & level-curve values (GDD §8 ⚖️).
+export interface XpBalance {
+  // XP per correct answer (awarded on every submit).
+  perCorrect: number;
+  // XP for completing a match (both players, on resolution).
+  matchCompleted: number;
+  // Bonus XP for the match winner, on top of matchCompleted.
+  matchWin: number;
+}
+
+export interface LevelCurveBalance {
+  // XP to reach level n = base × n^exponent (GDD §8).
+  base: number;
+  exponent: number;
+}
+
 export interface Balance {
   difficulties: Record<Difficulty, DifficultyBalance>;
   // Max speed bonus fraction: +50% for an instant answer, decaying linearly to 0
@@ -35,8 +61,13 @@ export interface Balance {
   speedBonusMax: number;
   // Network-delivery grace added server-side to each limit (doc 07 §2.2).
   servingGraceMs: number;
+  // Auto-forfeit window: a turn left un-played this long is swept (GDD §4.4).
+  turnDeadlineMs: number;
   match: MatchBalance;
   concurrency: ConcurrencyBalance;
+  weekly: WeeklyBalance;
+  xp: XpBalance;
+  levelCurve: LevelCurveBalance;
 }
 
 // GDD §3.2 / §3.3 initial values.
@@ -48,6 +79,7 @@ export const defaultBalance: Balance = {
   },
   speedBonusMax: 0.5,
   servingGraceMs: 1_500,
+  turnDeadlineMs: 36 * 60 * 60 * 1000, // 36h auto-forfeit (GDD §4.4)
   match: {
     roundsToWin: 3,
     maxRounds: 5,
@@ -56,6 +88,20 @@ export const defaultBalance: Balance = {
   concurrency: {
     maxActiveDuels: 20,
     maxDuelsPerOpponent: 3,
+  },
+  weekly: {
+    matchWinFlat: 100,
+    scoreDivisor: 100,
+    forfeitWinFlat: 100,
+  },
+  xp: {
+    perCorrect: 2,
+    matchCompleted: 20,
+    matchWin: 30,
+  },
+  levelCurve: {
+    base: 100,
+    exponent: 1.5,
   },
 };
 

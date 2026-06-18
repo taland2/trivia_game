@@ -14,6 +14,15 @@ import { scoreAnswer } from "./scoring.js";
 import { servingKey } from "../serve/roundServing.js";
 import { resolveRoundWinner, resolveMatchWinner } from "./resolveRound.js";
 import { matchListEntryFor, matchListPath } from "./matchList.js";
+import { deadlineFrom } from "./turn.js";
+import {
+  applyWeeklyPoints,
+  weeklyPointsForWin,
+  weeklyPointsForLoss,
+  xpForSubmit,
+  xpForCompletion,
+  nextUserXp,
+} from "../economy/grants.js";
 import type { MatchDoc, RoundDoc, RoundPlayerState, RecapDoc } from "./types.js";
 
 // Build the post-reveal recap player payload from a finished round's state.
@@ -132,6 +141,25 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
     }
     const round = roundSnap.data() as RoundDoc;
 
+    const opponentUid = match.players.find((p) => p !== uid)!;
+
+    // Read both players' user docs now (reads must precede writes in a txn) so XP
+    // grants below are computed from current totals and written at the end. XP is
+    // accumulated in memory; only players who actually earn XP get written.
+    const userRefs: Record<string, FirebaseFirestore.DocumentReference> = {
+      [uid]: db.doc(`users/${uid}`),
+      [opponentUid]: db.doc(`users/${opponentUid}`),
+    };
+    const [mySnap, oppSnap] = await Promise.all([
+      tx.get(userRefs[uid]!),
+      tx.get(userRefs[opponentUid]!),
+    ]);
+    const baseXp: Record<string, number> = {
+      [uid]: (mySnap.data()?.["xp"] as number) ?? 0,
+      [opponentUid]: (oppSnap.data()?.["xp"] as number) ?? 0,
+    };
+    const xpDelta: Record<string, number> = { [uid]: 0, [opponentUid]: 0 };
+
     const me: RoundPlayerState = round.perPlayer[uid] ?? {
       done: false,
       score: 0,
@@ -151,7 +179,9 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
     if (lastQ) me.done = true;
     round.perPlayer[uid] = me;
 
-    const opponentUid = match.players.find((p) => p !== uid)!;
+    // XP: +perCorrect for a correct answer, every submit (GDD §8).
+    xpDelta[uid]! += xpForSubmit(correct, balance);
+
     const oppDone = round.perPlayer[opponentUid]?.done === true;
     const bothDone = me.done && oppDone;
 
@@ -181,17 +211,22 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
       if (winner === "shared") {
         // --- Exact points-and-time tie → replay the round (GDD §4.5) ----------
         // Flag the re-deal and hand the turn back to the starter; no reveal, no
-        // round win. The next v1_startRound re-deals fresh questions (the picks
-        // happen outside this transaction). No currentRound advance.
+        // round win, no score banked. The next v1_startRound re-deals fresh
+        // questions (the picks happen outside this transaction). No round advance.
         round.winner = "shared";
         round.needsReplay = true;
         match.turnUid = round.starterUid;
+        match.turnDeadline = deadlineFrom(now, balance);
         res.replay = true;
         matchChanged = true;
       } else {
         // --- Resolve the round (GDD §4.5) -------------------------------------
         round.winner = winner;
         match.roundWins[winner] = (match.roundWins[winner] ?? 0) + 1;
+        // Weekly "match score" = winning rounds only (GDD §7, product decision):
+        // bank the winner's score for this round; the loser banks nothing.
+        match.scoreTotals[winner] =
+          (match.scoreTotals[winner] ?? 0) + round.perPlayer[winner]!.score;
 
         // Reveal projection — written only now that both players are done.
         const recap: RecapDoc = {
@@ -217,30 +252,65 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
           balance.match.roundsToWin,
         );
         if (matchWinner) {
+          const matchLoser = match.players.find((p) => p !== matchWinner)!;
           match.state = "finished";
           match.turnUid = null;
+          match.turnDeadline = null;
           match.finishedAt = now;
+
+          // Economy on resolution (GDD §7/§8). Completion XP for both, +win bonus
+          // for the winner; weekly points from the winning-rounds score totals.
+          xpDelta[matchWinner]! += xpForCompletion(true, balance);
+          xpDelta[matchLoser]! += xpForCompletion(false, balance);
+          const winPoints = weeklyPointsForWin(
+            match.scoreTotals[matchWinner] ?? 0,
+            balance,
+          );
+          const lossPoints = weeklyPointsForLoss(
+            match.scoreTotals[matchLoser] ?? 0,
+            balance,
+          );
+          applyWeeklyPoints(tx, db, now.toDate(), matchWinner, winPoints, "duels");
+          applyWeeklyPoints(tx, db, now.toDate(), matchLoser, lossPoints, "duels");
+
           match.result = {
             winner: matchWinner,
             reason: "rounds",
             finalScore: { ...match.roundWins },
+            weeklyPointsAwarded: {
+              [matchWinner]: winPoints,
+              [matchLoser]: lossPoints,
+            },
           };
           res.matchResult = match.result;
         } else {
           // Advance to the next round; its starter (GDD §4.2 alternation) leads.
           match.currentRound = roundIx + 1;
           match.turnUid = match.players[match.currentRound % 2]!;
+          match.turnDeadline = deadlineFrom(now, balance);
         }
         matchChanged = true;
       }
     } else if (lastQ && !bothDone) {
       // First player finished the round — hand the same round to the opponent.
       match.turnUid = opponentUid;
+      match.turnDeadline = deadlineFrom(now, balance);
       matchChanged = true;
     }
 
     tx.set(roundRef, round);
     tx.update(servingRef, { answeredAt: now });
+
+    // Persist XP for any player who earned some (recomputed level from total).
+    for (const p of match.players) {
+      if (xpDelta[p]! > 0) {
+        tx.set(
+          userRefs[p]!,
+          nextUserXp(baseXp[p]!, xpDelta[p]!, balance),
+          { merge: true },
+        );
+      }
+    }
 
     if (matchChanged) {
       tx.set(matchRef, match);

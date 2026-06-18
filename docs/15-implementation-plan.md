@@ -259,6 +259,39 @@ comparison reveal.
 complete full duels in all 3 modes, scoring formula verified by tests, tiebreakers + replay,
 forfeit sweep, weekly points awarded; bank ≥ 100/lang. *(Planning doc says "UI may be ugly" — it will be.)*
 
+> **2026-06-18 — Phase 4b ✅ complete → GATE A reached.** Backend-only (duel UI still
+> Phase 6); proven by the functions emulator integration suite.
+> **Product decisions (this session):** weekly "match score" = **winning rounds only**
+> (new `MatchDoc.scoreTotals`, banked per resolved round to the winner only); a **forfeit
+> win earns full XP** (+20 completed +30 win) on top of the flat 100 weekly points; a paired
+> **stranger match always runs Spinner** mode. Recorded in GDD §7/§8/§4.8.
+> **Turn deadlines + forfeit sweep (§4.4):** `MatchDoc.turnDeadline` (now + `balance.turnDeadlineMs`
+> = 36h), stamped in `buildDuelMatch` and re-stamped at every `turnUid` flip in `submitAnswer`
+> (handoff, next-round advance, tie-replay), cleared to null on finish (`match/turn.ts`
+> `deadlineFrom`). Pure `decideForfeit` + transactional `sweepForfeits`/`forfeitMatchTx`
+> (`match/sweepForfeits.ts`): the in-txn match re-read guarantees exactly-once against a
+> racing submit. `scheduledForfeitSweep` (`jobs/`, `onSchedule`) is **wired but NOT deployed
+> until Phase 7** (Blaze); the suite drives `sweepForfeits` directly. Composite index
+> `state+turnDeadline` added to `firestore.indexes.json`.
+> **Economy (§7/§8):** `economy/weekId.ts` (hand-rolled ISO-week, Asia/Jerusalem, week-numbering
+> year — no date lib) + `economy/grants.ts` (pure formulas + `applyWeeklyPoints` via
+> `FieldValue.increment`). Grants fold into `submitAnswer`'s existing transaction (so the
+> idempotency-doc short-circuit makes them replay-safe): +2 XP/correct each submit, completion
+> XP (+20 both, +30 winner) + weekly `duels` points at finish; level recomputed from total
+> (`100×n^1.5`). `boards/{uid}` projection deferred to Phase 7. `MatchResultDoc.weeklyPointsAwarded`
+> audit field; contract `MatchResultSchema` gains it (optional).
+> **Stranger queue (§4.8), flag-gated OFF:** `config/flags.ts` `isStrangerQueueEnabled`
+> (env → `config/flags` doc → false); `match/strangerQueue.ts` `v1_joinStrangerQueue`/
+> `v1_leaveStrangerQueue` — same-language closest-level pairing, txn serialized on the
+> candidate's queue doc (no double/self-pair), `buildDuelMatch({isStrangerMatch:true})`.
+> Contract `stranger.ts`. `strangerQueue/*` stays default-deny.
+> **Bank:** dev-seed scaled 96 → **240** (5 per language×category×difficulty cell, 120/lang).
+> **Tests:** 56 functions unit (+15: `weekId`/`grants`/`sweepForfeits`) + 18 api_contract +
+> **37 emulator** (17 duel, 5 forfeit incl. sweep-vs-submit race, 4 economy + §11 null-answer/
+> repeat-exclusion, 5 stranger, 6 rules). `flutter analyze` clean (app untouched); ESLint clean.
+> **Deferred to Phase 8** (need friends/deletion): unfriend/block mid-match cancel,
+> account-deleted forfeit — Gate A stays honest about these.
+
 ## Phase 5 — Design System & Question-Screen Juice
 *Refs: doc 04 §1, §4–8*
 
@@ -371,8 +404,8 @@ operating period, not a build phase).
 | 1 — Walking skeleton | ✅ | 2026-06-14 | bfeaaf0 |
 | 2 — Round engine | ✅ | 2026-06-14 | afd89a5 |
 | 3 — Duels | ✅ | 2026-06-17 | 883da14 |
-| 4a — Core duel rules | ✅ | 2026-06-18 | (this commit) |
-| 4b — Jobs/economy → Gate A | ☐ | | |
+| 4a — Core duel rules | ✅ | 2026-06-18 | 666aa83 |
+| 4b — Jobs/economy → Gate A | ✅ | 2026-06-18 | (this commit) |
 | 5 — Design system | ☐ | | |
 | 6 — App shell | ☐ | | |
 | 7 — Daily/weekly/XP | ☐ | | |

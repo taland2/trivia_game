@@ -5,6 +5,7 @@ import { CreateDuelRequestSchema, type CategoryMode } from "@trivia/api-contract
 import { getBalance } from "../config/balance.js";
 import { FUNCTIONS_REGION } from "../config/region.js";
 import { loadUserLanguage } from "../user/profile.js";
+import { deadlineFrom } from "./turn.js";
 import type { MatchDoc, MatchListEntry } from "./types.js";
 import {
   matchListCollectionPath,
@@ -13,13 +14,16 @@ import {
 } from "./matchList.js";
 
 // Build a fresh active async-duel doc. `players[0]` is the challenger and takes
-// the first turn (GDD §4.2). Shared by createDuel and acceptRematch.
+// the first turn (GDD §4.2). Shared by createDuel, acceptRematch, and the
+// stranger queue (which sets isStrangerMatch). The first turn's deadline is
+// stamped here (GDD §4.4).
 export function buildDuelMatch(opts: {
   challenger: string;
   opponent: string;
   categoryMode: CategoryMode;
   language: string;
   now: Timestamp;
+  isStrangerMatch?: boolean;
 }): MatchDoc {
   const { challenger, opponent, categoryMode, language, now } = opts;
   return {
@@ -28,10 +32,12 @@ export function buildDuelMatch(opts: {
     players: [challenger, opponent],
     state: "active",
     roundWins: { [challenger]: 0, [opponent]: 0 },
+    scoreTotals: { [challenger]: 0, [opponent]: 0 },
     currentRound: 0,
     turnUid: challenger,
+    turnDeadline: deadlineFrom(now, getBalance()),
     language,
-    isStrangerMatch: false,
+    isStrangerMatch: opts.isStrangerMatch ?? false,
     usedCategories: [],
     result: null,
     createdAt: now,

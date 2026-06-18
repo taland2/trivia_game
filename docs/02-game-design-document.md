@@ -156,6 +156,9 @@ First to 3 round wins ──► match result + XP + weekly points + [Rematch] bu
 - **Built in MVP code, enabled by Remote Config only at soft launch (Gate E)** — a 20-user
   beta has no queue liquidity and a dead queue is worse than none. Pre-launch, zero-friend
   users see daily challenge + invite CTA.
+- **A paired stranger match always uses Spinner category mode** (decided Phase 4b): the two
+  queued players may have requested different modes, so the auto-created match ignores both
+  and runs the neutral Spinner (the waiting player is the challenger / takes the first turn).
 - Post-match: "Add as friend" request option (mutual accept as usual). Strangers never
   appear on the weekly friends leaderboard; stranger-duel results award XP and weekly
   points to each player's own board.
@@ -226,6 +229,10 @@ First to 3 round wins ──► match result + XP + weekly points + [Rematch] bu
 | Daily challenge | daily score / 100 |
 | Real-time modes (v1.0) | same formula as duels |
 
+- **"Match score" = winning rounds only** (decided Phase 4b): a player's match score is the
+  sum of their round scores **for the rounds they won**; rounds they lost contribute nothing.
+  Tracked server-side as `MatchDoc.scoreTotals` (doc 08). So a 3–2 loser still earns points
+  from their 2 won rounds, but a swept loser earns 0.
 - Rationale: winning matters most, but heavy players who lose still climb — keeps weaker
   players engaged in the race.
 - End of week: top-3 podium screen + notification ("You finished #2! Rita took the crown 👑").
@@ -239,6 +246,9 @@ First to 3 round wins ──► match result + XP + weekly points + [Rematch] bu
 
 - **XP is permanent and only ever increases.** Sources: ⚖️ match completed +20, match won
   +30 bonus, daily challenge +25, each correct answer +2.
+- **A forfeit win counts as a completed win for XP** (decided Phase 4b): the winner of an
+  auto-forfeit (§4.4) earns the +20 completed **and** +30 win XP (plus the 100 flat weekly
+  points); the forfeiter earns nothing. A win is a win.
 - Level curve: ⚖️ `XP to reach level n = 100 × n^1.5` (rounded) — fast early levels,
   meaningful grind later.
 - Level is displayed on profile, leaderboard rows, and match headers.

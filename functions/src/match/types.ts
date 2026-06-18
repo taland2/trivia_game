@@ -19,6 +19,9 @@ export interface MatchResultDoc {
   winner: string;
   reason: MatchReason;
   finalScore: Record<string, number>; // uid -> rounds won
+  // Weekly points granted at resolution, per uid (GDD §7). Audit trail + a
+  // defensive double-grant guard (a re-resolve sees result already set).
+  weeklyPointsAwarded?: Record<string, number>;
 }
 
 // matches/{matchId} — participant-readable (carries no unanswered-answer data).
@@ -28,8 +31,14 @@ export interface MatchDoc {
   players: [string, string]; // [challenger, opponent] — immutable
   state: MatchState;
   roundWins: Record<string, number>;
+  // Per-player running total of the scores of rounds they WON (GDD §7 weekly
+  // "match score" = winning rounds only). The loser of a round adds nothing.
+  scoreTotals: Record<string, number>;
   currentRound: number; // 0-based index of the round in play
   turnUid: string | null; // whose turn; null once finished
+  // 36h auto-forfeit target (GDD §4.4). Re-stamped on every turn flip; null once
+  // the match is finished/forfeited. The forfeit sweep queries state+turnDeadline.
+  turnDeadline: Timestamp | null;
   language: string;
   isStrangerMatch: boolean;
   usedCategories: string[]; // auto-mode no-repeat (Phase 4)
