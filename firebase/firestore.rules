@@ -34,6 +34,27 @@ service cloud.firestore {
       }
     }
 
+    // Player profile (doc 08 §2). Owner-readable (Phase 8 widens reads to friends).
+    // Clients may write ONLY preference fields (guardrail #1 whitelist); integrity
+    // fields (xp, level, username, stats, streak, blocked) are function-written and
+    // must never be touched by a client. `create` bounds the initial key set; every
+    // later `update` may only change whitelisted keys (diff), so function-written
+    // fields added afterwards stay locked even though they exist on the doc.
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(
+          ['language', 'isGuest', 'createdAt', 'displayName', 'avatarId',
+           'fcmTokens', 'searchable']
+        );
+
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          ['language', 'displayName', 'avatarId', 'fcmTokens', 'searchable']
+        );
+    }
+
     // Home-screen match cards — owner-readable projection.
     match /users/{uid}/matchList/{matchId} {
       allow read: if request.auth != null && request.auth.uid == uid;

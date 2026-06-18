@@ -144,15 +144,120 @@ comparison reveal.
 > PEM's Apache) — updated `firebase.json`, `dev.ps1`, `seed-questions.ts`.
 
 ## Phase 4 — Full Duel Rules → **GATE A** 🎯
-*Refs: doc 02 §4.3–4.8, §7–8 (engine side), doc 11 Gate A*
+*Refs: doc 02 §4.3–4.8, §7–8 (engine side), doc 07 §2.2, doc 08 §2, doc 11 Gate A*
 
-Category modes pick/spin/auto (server-decided spin) · same-language rule · round-tie →
-total-time → replay · turn deadlines + forfeit sweep job (36h) · weekly-points + XP
-grants on resolution (engine only, no UI) · concurrency caps · stranger-queue functions
-(flag-gated, default off). Tests: every applicable GDD §11 row + tie matrix + forfeit
-sweep racing in-flight submit.
+> **2026-06-17 — Phase 4 planning (user decisions):**
+> 1. **Split into 4a + 4b** — the original single phase bundled 7 large feature areas
+>    (one unreviewable commit). 4a = core in-match rules (still playable end-to-end);
+>    4b = background jobs + economy + stranger queue, ending at Gate A.
+> 2. **Same-language source of truth = a minimal `users/{uid}` doc now** (just
+>    `language` + `isGuest` + `createdAt`), written client-side at sign-in (profile/
+>    preference field, guardrail #1 whitelist). Phase 8 builds the full profile on top;
+>    this replaces the hardcoded `match.language: "he"`.
+> 3. **Economy write-side built in its real Phase-7 shape now** — `weekly/{weekId}/
+>    scores/{uid}` raw buckets (ISO week, Asia/Jerusalem) + `users/{uid}.xp`/`level`,
+>    written transactionally with resolution. Phase 7 adds only the Monday reset job,
+>    the friend-ranked `boards/{uid}` projection, and all UI. No UI in Phase 4.
+> 4. **Category `pick` handshake = single `startRound` callable, two calls.** First call
+>    on the pick-turn (no `categoryId`) returns a **locked** 3-category offer persisted on
+>    the round doc (no reroll); second call with `categoryId` validates membership and
+>    proceeds. No separate `v1_offerCategories`.
 
-**Exit checkpoint:** doc 11 Gate A criteria all green. *(Planning doc says "UI may be ugly" — it will be.)*
+### Phase 4a — Core Duel Rules (playable)
+*Refs: doc 02 §4.3, §4.5, §4.6, §4.7*
+
+- **Same-language rule (§4.7):** introduce `users/{uid}` (minimal); `firestore.rules`
+  grants owner create/update of the whitelisted preference fields only (deny `xp`/`level`/
+  `username`/`stats`). `v1_createDuel` reads both profiles → languages differ ⇒
+  `failed-precondition`/`language-mismatch`; locks `match.language` from the challenger's
+  profile (kills the hardcoded `"he"`).
+- **Category modes pick/spin/auto (§4.3):** extract a `selectCategory` module; make
+  `v1_startRound` mode-aware. **auto** = pick from the 8 minus `match.usedCategories`,
+  reset pool when all used. **spin** = random of the 8, response carries `spinResult` for
+  the wheel theater (outcome server-decided). **pick** = the locked two-call offer above;
+  starter = `players[roundIx % 2]` already gives §4.3 alternation. Append the chosen
+  category to `usedCategories` on lock (all modes).
+- **Round-tie → replay (§4.5):** when `resolveRoundWinner` returns `"shared"` (exact
+  points-and-time tie), don't advance — flag the round `needsReplay`, flip the turn back to
+  the starter, and let the next `v1_startRound` re-deal **fresh** questions at the same
+  `roundIx` with `isTiebreaker: true` (question picks stay outside the resolution
+  transaction). No round win consumed.
+- **Concurrency caps (§4.6 ⚖️):** `v1_createDuel` rejects a 21st active duel
+  (`resource-exhausted`/`max-active-duels`) and a 4th active duel vs. the same opponent
+  (`max-duels-with-friend`). Caps → `config/balance.ts`.
+- **Contract/data-model:** `StartRoundResponse` gains the pick-offer variant
+  (`{ needsPick, offered[3] }`) + `spinResult`; `MatchDoc.language` becomes real;
+  `MatchDoc` keeps `usedCategories`. Update doc 07 §2.2 startRound row to the two-call pick.
+
+  **Exit checkpoint (4a):** two emulator accounts play full duels in **all three** category
+  modes; a forced score-tie resolves on total time, and a forced exact tie replays the round
+  with fresh questions; a mixed-language `createDuel` is rejected; the 21st duel / 4th-vs-one
+  -friend are rejected.
+
+  > **2026-06-18 — Phase 4a ✅ complete.**
+  > Contract (`packages/api_contract`): `CategorySchema` (the 8 launch categories, shared
+  > with Dart) + `CATEGORIES`; `StartRoundResponse` is now a union of a served variant
+  > (adds optional `spinResult`) and a `needsPick` offer variant; `categoryId` is enum-
+  > constrained; `SubmitAnswerResponse` gains `replay?`.
+  > Same-language rule: new minimal `users/{uid}` (`functions/src/user/profile.ts`,
+  > `{language,isGuest,createdAt}`), written client-side at sign-in; `firestore.rules` grants
+  > owner read + a preference-field write whitelist (create bounds keys, update diffs keys so
+  > later function-written fields stay locked). `v1_createDuel` reads both profiles → locks
+  > `match.language`, rejects mixed-language (`language-mismatch`) and a profileless opponent
+  > (`not-found/user`); the hardcoded `"he"` is gone.
+  > Category modes: `functions/src/serve/selectCategory.ts` (pure auto-no-repeat / spin /
+  > pick-offer). `v1_startRound` is mode-aware — spin returns `spinResult`; auto picks from
+  > `usedCategories`-excluded pool; pick is the two-call locked-offer handshake; a chosen
+  > category off-offer is `invalid-argument/categoryId`. Categories are appended to
+  > `usedCategories` on lock (one match write).
+  > Tie replay (GDD §4.5): an exact points-and-time tie flags the round `needsReplay` +
+  > flips the turn to the starter (no recap, no win, no round advance); the next
+  > `v1_startRound` re-deals fresh questions at the same `roundIx`, bumping `RoundDoc.attempt`
+  > (folded into the serving key as `_r{n}`) and setting `isTiebreaker`. The replay branch is
+  > checked BEFORE the idempotent-serve guard (which would otherwise return the stale deal).
+  > Concurrency caps (GDD §4.6 → `config/balance.ts`): one single-field `matchList` query
+  > enforces ≤20 active (`max-active-duels`) and ≤3 per opponent (`max-duels-with-friend`).
+  > Tests: 36 functions unit (incl. 7 `selectCategory`) + 24 api_contract + **23 emulator**
+  > (17 duel integration — added spin/pick/auto, language mismatch ×2, both caps, score-tie→
+  > time, injected exact-tie→replay; 6 rules). `flutter analyze` clean (app untouched);
+  > ESLint clean.
+  > **Deferred to 4b:** turn deadlines + forfeit sweep, weekly/XP grants, stranger queue,
+  > bank ≥100/lang, the remaining GDD §11 rows.
+
+### Phase 4b — Jobs, Economy & Stranger Queue → **GATE A** 🎯
+*Refs: doc 02 §4.4, §4.8, §7, §8; doc 08 (weekly/xp/strangerQueue); doc 11 Gate A*
+
+- **Turn deadlines + forfeit sweep (§4.4 ⚖️):** add `MatchDoc.turnDeadline` (= now + 36h),
+  re-stamped on every turn flip (create + handoff + round resolution). Pure
+  `sweepForfeits(now)` module: `state==active && turnDeadline <= now` ⇒ mark `forfeited`,
+  winner = the other player, award the forfeit-win weekly points (§7), result
+  `reason: forfeit`, update both `matchList`s. Composite index per doc 08 §3. A
+  `scheduledForfeitSweep` pubsub wrapper is **wired but not deployed until Phase 7** (Blaze);
+  the emulator suite drives `sweepForfeits` directly. Test: sweep racing an in-flight submit
+  (both touch the match doc → transaction must resolve exactly once).
+- **Weekly-points + XP grants (§7/§8, write-side real shape):** on resolution (in the submit
+  transaction **and** the sweep) increment `weekly/{weekId}/scores/{uid}` with `breakdown`
+  (weekId = ISO week, Asia/Jerusalem); XP per §8 (+2/correct on each submit, +20 completed,
+  +30 win) → `users/{uid}.xp` + recomputed `level` (`100 × n^1.5`). Record
+  `result.weeklyPointsAwarded` for audit + double-grant safety (existing idempotency doc
+  guards submit replays; the sweep checks the field). All formulas/curve → `balance.ts`.
+  **The friend-ranked `boards/{uid}` projection is deferred to Phase 7** (needs friendships);
+  4b writes only the raw `scores/{uid}`.
+- **Stranger queue (§4.8), flag-gated default off:** `v1_joinStrangerQueue({categoryMode})`
+  / `v1_leaveStrangerQueue`, gated by Remote Config `stranger_queue_enabled` (off ⇒
+  `queued: false`). Writes `strangerQueue/{uid}`; on enqueue, attempt to pair with a waiting
+  same-language player (closest level) into a standard match (`isStrangerMatch: true`). Test
+  with the flag forced on: two compatible enqueues pair; flag off ⇒ no pairing.
+- **Bank ≥ 100/lang:** extend dev-seed from 48 → ≥100 per language (quick AI batch,
+  `source: dev-seed`); update `scripts/seed-questions.ts`.
+- **GDD §11 edge-case tests (in-scope rows):** app-killed-mid-question (0 pts, resume next q),
+  double-submit idempotent, clock-manipulation irrelevant, repeat-exclusion (light — full
+  90-day/500-served window lands in Phase 10). **Deferred to Phase 8** (need friends/deletion):
+  unfriend/block mid-match cancel, account-deleted forfeit — noted here so Gate A stays honest.
+
+**Exit checkpoint (4b = Gate A):** doc 11 Gate A criteria all green — two emulator accounts
+complete full duels in all 3 modes, scoring formula verified by tests, tiebreakers + replay,
+forfeit sweep, weekly points awarded; bank ≥ 100/lang. *(Planning doc says "UI may be ugly" — it will be.)*
 
 ## Phase 5 — Design System & Question-Screen Juice
 *Refs: doc 04 §1, §4–8*
@@ -264,9 +369,10 @@ operating period, not a build phase).
 |---|---|---|---|
 | 0 — Tooling & scaffold | ✅ | 2026-06-14 | abf37a8 |
 | 1 — Walking skeleton | ✅ | 2026-06-14 | bfeaaf0 |
-| 2 — Round engine | ✅ | 2026-06-14 | (this commit) |
-| 3 — Duels | ☐ | | |
-| 4 — Gate A | ☐ | | |
+| 2 — Round engine | ✅ | 2026-06-14 | afd89a5 |
+| 3 — Duels | ✅ | 2026-06-17 | 883da14 |
+| 4a — Core duel rules | ✅ | 2026-06-18 | (this commit) |
+| 4b — Jobs/economy → Gate A | ☐ | | |
 | 5 — Design system | ☐ | | |
 | 6 — App shell | ☐ | | |
 | 7 — Daily/weekly/XP | ☐ | | |

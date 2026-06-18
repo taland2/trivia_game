@@ -1,9 +1,12 @@
 import type { Timestamp } from "firebase-admin/firestore";
 import type { MatchDoc, MatchListEntry } from "./types.js";
 
-// Home-screen projection path (doc 08 §1). Owner-readable only.
+// Home-screen projection paths (doc 08 §1). Owner-readable only.
+export function matchListCollectionPath(uid: string): string {
+  return `users/${uid}/matchList`;
+}
 export function matchListPath(uid: string, matchId: string): string {
-  return `users/${uid}/matchList/${matchId}`;
+  return `${matchListCollectionPath(uid)}/${matchId}`;
 }
 
 // Build one player's matchList card from the canonical match doc. Written for

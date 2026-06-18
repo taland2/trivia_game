@@ -8,6 +8,21 @@ export type Difficulty = z.infer<typeof DifficultySchema>;
 export const CategoryModeSchema = z.enum(["pick", "spin", "auto"]);
 export type CategoryMode = z.infer<typeof CategoryModeSchema>;
 
+// The 8 launch categories (GDD §3.4). Structural, not a ⚖️ balance value. Shared
+// here so both the functions engine and the Dart client name them identically.
+export const CategorySchema = z.enum([
+  "general_knowledge",
+  "sports",
+  "movies_tv",
+  "music",
+  "science_tech",
+  "history",
+  "geography",
+  "israel_local",
+]);
+export type Category = z.infer<typeof CategorySchema>;
+export const CATEGORIES = CategorySchema.options;
+
 // Every mutating callable carries a client-generated UUID v4 (doc 07 §1).
 export const IdempotencyKeySchema = z.string().uuid();
 

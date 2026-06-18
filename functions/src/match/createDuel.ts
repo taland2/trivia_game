@@ -2,9 +2,15 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { Timestamp } from "firebase-admin/firestore";
 import { getFirestore } from "../firebase.js";
 import { CreateDuelRequestSchema, type CategoryMode } from "@trivia/api-contract";
+import { getBalance } from "../config/balance.js";
 import { FUNCTIONS_REGION } from "../config/region.js";
-import type { MatchDoc } from "./types.js";
-import { matchListEntryFor, matchListPath } from "./matchList.js";
+import { loadUserLanguage } from "../user/profile.js";
+import type { MatchDoc, MatchListEntry } from "./types.js";
+import {
+  matchListCollectionPath,
+  matchListEntryFor,
+  matchListPath,
+} from "./matchList.js";
 
 // Build a fresh active async-duel doc. `players[0]` is the challenger and takes
 // the first turn (GDD §4.2). Shared by createDuel and acceptRematch.
@@ -71,10 +77,56 @@ export const v1_createDuel = onCall({ region: FUNCTIONS_REGION }, async (request
     });
   }
 
-  // Phase 3 boundary: friendship validation, concurrency caps (GDD §4.6) and the
-  // same-language rule (GDD §4.7) are deferred to Phase 4/8. All writes here are
-  // function-side (guardrail #1); clients only ever read these docs.
+  // All writes here are function-side (guardrail #1); clients only ever read
+  // these docs. Friendship validation + the block rule land with the social
+  // graph in Phase 8; this phase enforces the same-language rule (GDD §4.7) and
+  // the concurrency caps (GDD §4.6).
   const db = getFirestore();
+  const balance = getBalance();
+
+  // Same-language rule (GDD §4.7): both players must share an app language; the
+  // match locks that language for its lifetime. A missing opponent profile is a
+  // not-found user; differing languages are a clear, recoverable precondition.
+  const [myLang, oppLang] = await Promise.all([
+    loadUserLanguage(db, uid),
+    loadUserLanguage(db, opponentUid),
+  ]);
+  if (myLang === null) {
+    throw new HttpsError("failed-precondition", "Set your language first", {
+      reason: "language-mismatch",
+    });
+  }
+  if (oppLang === null) {
+    throw new HttpsError("not-found", "Opponent not found", { reason: "user" });
+  }
+  if (myLang !== oppLang) {
+    throw new HttpsError("failed-precondition", "Different app languages", {
+      reason: "language-mismatch",
+    });
+  }
+
+  // Concurrency caps (GDD §4.6). One single-field query over the caller's home
+  // projection (active duels are ⚖️ ≤ 20, so the read is tiny) covers both the
+  // global cap and the per-opponent cap — no composite index needed.
+  const activeSnap = await db
+    .collection(matchListCollectionPath(uid))
+    .where("state", "==", "active")
+    .get();
+  const active = activeSnap.docs.map((d) => d.data() as MatchListEntry);
+  if (active.length >= balance.concurrency.maxActiveDuels) {
+    throw new HttpsError("resource-exhausted", "Too many active duels", {
+      reason: "max-active-duels",
+    });
+  }
+  if (
+    active.filter((e) => e.opponentUid === opponentUid).length >=
+    balance.concurrency.maxDuelsPerOpponent
+  ) {
+    throw new HttpsError("resource-exhausted", "Too many duels with this player", {
+      reason: "max-duels-with-friend",
+    });
+  }
+
   const now = Timestamp.now();
   const matchId = db.collection("matches").doc().id;
 
@@ -82,7 +134,7 @@ export const v1_createDuel = onCall({ region: FUNCTIONS_REGION }, async (request
     challenger: uid,
     opponent: opponentUid,
     categoryMode,
-    language: "he", // Phase 6 language switch fills this from the user profile
+    language: myLang, // locked at creation (GDD §4.7)
     now,
   });
 

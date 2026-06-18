@@ -8,13 +8,19 @@ import { shuffleAnswers, type BankQuestion } from "./questionBank.js";
 // shuffled independently per player (GDD §3.1), so each player gets their own
 // servingsPrivate docs. This is also the anti-cheat boundary — `correctIx` lives
 // here (function-only) and never reaches the client (guardrail #2).
+//
+// `attempt` (GDD §4.5 tie replay) is 0 for the original deal — kept suffix-free so
+// the key matches the Phase-3 format — and `_r{n}` for the nth re-deal at the same
+// roundIx, so a replay's servings never collide with the tied attempt's docs.
 export function servingKey(
   matchId: string,
   roundIx: number,
   qIx: number,
   uid: string,
+  attempt = 0,
 ): string {
-  return `${matchId}_${roundIx}_${qIx}_${uid}`;
+  const suffix = attempt > 0 ? `_r${attempt}` : "";
+  return `${matchId}_${roundIx}_${qIx}_${uid}${suffix}`;
 }
 
 // Serve a round's 3 questions to one player: shuffle answers, write the private
@@ -29,9 +35,10 @@ export async function serveRoundForPlayer(
     roundIx: number;
     uid: string;
     questions: BankQuestion[];
+    attempt?: number;
   },
 ): Promise<Serving[]> {
-  const { matchId, roundIx, uid, questions } = opts;
+  const { matchId, roundIx, uid, questions, attempt = 0 } = opts;
   const balance = getBalance();
   const now = Timestamp.now();
 
@@ -44,7 +51,7 @@ export async function serveRoundForPlayer(
     const shuffled = shuffleAnswers(bankQ);
 
     const serving: Serving = {
-      servingId: servingKey(matchId, roundIx, qIx, uid),
+      servingId: servingKey(matchId, roundIx, qIx, uid, attempt),
       qIx,
       difficulty: bankQ.difficulty,
       timeLimitMs,
@@ -80,11 +87,17 @@ export async function serveRoundForPlayer(
 // startRound replay). Returns null if the player has not been served this round.
 export async function loadServedRound(
   db: Firestore,
-  opts: { matchId: string; roundIx: number; uid: string; count: number },
+  opts: {
+    matchId: string;
+    roundIx: number;
+    uid: string;
+    count: number;
+    attempt?: number;
+  },
 ): Promise<Serving[] | null> {
-  const { matchId, roundIx, uid, count } = opts;
+  const { matchId, roundIx, uid, count, attempt = 0 } = opts;
   const refs = Array.from({ length: count }, (_, qIx) =>
-    db.doc(`servingsPrivate/${servingKey(matchId, roundIx, qIx, uid)}`),
+    db.doc(`servingsPrivate/${servingKey(matchId, roundIx, qIx, uid, attempt)}`),
   );
   const snaps = await db.getAll(...refs);
   if (snaps.some((s) => !s.exists)) return null;

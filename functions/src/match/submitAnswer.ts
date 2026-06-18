@@ -56,10 +56,19 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
   const balance = getBalance();
   const now = Timestamp.now();
 
+  // The serving key folds in the round's replay attempt (GDD §4.5), so read the
+  // round's current attempt first; a missing round means nothing was served.
+  const roundRef = db.doc(`matches/${matchId}/rounds/${roundIx}`);
+  const preRoundSnap = await roundRef.get();
+  if (!preRoundSnap.exists) {
+    throw new HttpsError("not-found", "Round not started", { reason: "match" });
+  }
+  const attempt = (preRoundSnap.data() as RoundDoc).attempt;
+
   // Private serving (function-only) holds the answer key + the immutable scoring
   // clock. Read outside the transaction — it never changes after serving.
   const servingRef = db.doc(
-    `servingsPrivate/${servingKey(matchId, roundIx, qIx, uid)}`,
+    `servingsPrivate/${servingKey(matchId, roundIx, qIx, uid, attempt)}`,
   );
   const privSnap = await servingRef.get();
   if (!privSnap.exists) {
@@ -87,7 +96,6 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
 
   const idempRef = db.doc(`idempotency/${uid}_${idempotencyKey}`);
   const matchRef = db.doc(`matches/${matchId}`);
-  const roundRef = db.doc(`matches/${matchId}/rounds/${roundIx}`);
 
   // Everything that mutates match state runs in one transaction so two last
   // answers landing together resolve the round exactly once (doc 12 race test).
@@ -151,6 +159,7 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
       correctIx: number;
       points: number;
       roundDone?: boolean;
+      replay?: boolean;
       roundResult?: RoundResult;
       matchResult?: MatchResult;
     } = { correctIx, points };
@@ -160,7 +169,6 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
     let matchChanged = false;
 
     if (lastQ && bothDone) {
-      // --- Resolve the round (GDD §4.5) ---------------------------------------
       const winner = resolveRoundWinner(
         { uid, score: me.score, totalMs: me.totalMs },
         {
@@ -169,48 +177,62 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
           totalMs: round.perPlayer[opponentUid]!.totalMs,
         },
       );
-      round.winner = winner;
-      if (winner !== "shared") match.roundWins[winner] = (match.roundWins[winner] ?? 0) + 1;
 
-      // Reveal projection — written only now that both players are done.
-      const recap: RecapDoc = {
-        roundIx,
-        category: round.category,
-        winner,
-        players: match.players.map((p) =>
-          recapPlayer(p, round.perPlayer[p]!, round.difficulties),
-        ),
-        revealedAt: now,
-      };
-      tx.set(db.doc(`matches/${matchId}/recaps/${roundIx}`), recap);
-
-      res.roundResult = {
-        roundIx,
-        winner,
-        players: recap.players,
-      };
-
-      // --- Resolve the match if decided (GDD §4.1) ----------------------------
-      const matchWinner = resolveMatchWinner(
-        match.roundWins,
-        balance.match.roundsToWin,
-      );
-      if (matchWinner) {
-        match.state = "finished";
-        match.turnUid = null;
-        match.finishedAt = now;
-        match.result = {
-          winner: matchWinner,
-          reason: "rounds",
-          finalScore: { ...match.roundWins },
-        };
-        res.matchResult = match.result;
+      if (winner === "shared") {
+        // --- Exact points-and-time tie → replay the round (GDD §4.5) ----------
+        // Flag the re-deal and hand the turn back to the starter; no reveal, no
+        // round win. The next v1_startRound re-deals fresh questions (the picks
+        // happen outside this transaction). No currentRound advance.
+        round.winner = "shared";
+        round.needsReplay = true;
+        match.turnUid = round.starterUid;
+        res.replay = true;
+        matchChanged = true;
       } else {
-        // Advance to the next round; its starter (GDD §4.2 alternation) leads.
-        match.currentRound = roundIx + 1;
-        match.turnUid = match.players[match.currentRound % 2]!;
+        // --- Resolve the round (GDD §4.5) -------------------------------------
+        round.winner = winner;
+        match.roundWins[winner] = (match.roundWins[winner] ?? 0) + 1;
+
+        // Reveal projection — written only now that both players are done.
+        const recap: RecapDoc = {
+          roundIx,
+          category: round.category,
+          winner,
+          players: match.players.map((p) =>
+            recapPlayer(p, round.perPlayer[p]!, round.difficulties),
+          ),
+          revealedAt: now,
+        };
+        tx.set(db.doc(`matches/${matchId}/recaps/${roundIx}`), recap);
+
+        res.roundResult = {
+          roundIx,
+          winner,
+          players: recap.players,
+        };
+
+        // --- Resolve the match if decided (GDD §4.1) --------------------------
+        const matchWinner = resolveMatchWinner(
+          match.roundWins,
+          balance.match.roundsToWin,
+        );
+        if (matchWinner) {
+          match.state = "finished";
+          match.turnUid = null;
+          match.finishedAt = now;
+          match.result = {
+            winner: matchWinner,
+            reason: "rounds",
+            finalScore: { ...match.roundWins },
+          };
+          res.matchResult = match.result;
+        } else {
+          // Advance to the next round; its starter (GDD §4.2 alternation) leads.
+          match.currentRound = roundIx + 1;
+          match.turnUid = match.players[match.currentRound % 2]!;
+        }
+        matchChanged = true;
       }
-      matchChanged = true;
     } else if (lastQ && !bothDone) {
       // First player finished the round — hand the same round to the opponent.
       match.turnUid = opponentUid;

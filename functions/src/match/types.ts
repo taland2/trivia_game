@@ -57,13 +57,24 @@ export interface RoundPlayerState {
 // access). Holds locked question refs and both players' live answers, so it must
 // never be exposed; the reveal goes through the recaps subcollection instead.
 export interface RoundDoc {
-  category: string;
-  questionIds: string[]; // locked when the starter serves the round
+  category: string; // "" while a pick-mode offer is pending (questions unlocked)
+  questionIds: string[]; // locked when the starter serves the round; [] pre-pick
   difficulties: Difficulty[]; // parallel to questionIds (1E/1M/1H)
   starterUid: string; // players[roundIx % 2]
   perPlayer: Record<string, RoundPlayerState>;
   winner: string | "shared" | null;
   isTiebreaker: boolean;
+  // pick mode (GDD §4.3): the 3 categories offered to the starter, locked on the
+  // first startRound call so the choice can't be rerolled. null in spin/auto.
+  offeredCategories: string[] | null;
+  // Replay attempt counter (GDD §4.5). 0 = original deal; bumped each time an
+  // exact points-and-time tie forces a fresh re-deal at the same roundIx. Folded
+  // into the serving key so a replay's servings don't collide with prior attempts.
+  attempt: number;
+  // Set true by the resolver on an exact tie; the next startRound by the starter
+  // re-deals fresh questions and clears it (the picks happen outside the resolve
+  // transaction, so resolution only flags the intent).
+  needsReplay: boolean;
 }
 
 // matches/{matchId}/recaps/{roundIx} — participant-readable, written only once

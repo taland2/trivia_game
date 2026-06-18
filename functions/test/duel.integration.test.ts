@@ -8,7 +8,7 @@
 // the question bank and reading the function-only servingsPrivate doc so the
 // "client" can choose to answer correctly/incorrectly and steer scores.
 
-import { beforeAll, afterAll, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 
 const PROJECT = "demo-trivia-dev";
 const REGION = "me-west1";
@@ -42,6 +42,7 @@ import {
   connectFirestoreEmulator,
   doc as clientDoc,
   getDoc,
+  setDoc,
   type Firestore as ClientFirestore,
 } from "firebase/firestore";
 
@@ -98,13 +99,20 @@ async function correctIxFor(
   return snap.data()!["correctIx"] as number;
 }
 
-// Play a player's whole round turn; `correctly` steers their score.
+// Play a player's whole round turn; `correctly` steers their score. Handles the
+// pick-mode two-call handshake transparently (offer → choose offered[0]).
 async function playRound(
   c: Client,
   matchId: string,
   correctly: boolean,
 ): Promise<any> {
-  const start = await call(c, "v1_startRound", { matchId });
+  let start = await call(c, "v1_startRound", { matchId });
+  if (start.needsPick) {
+    start = await call(c, "v1_startRound", {
+      matchId,
+      categoryId: start.offered[0],
+    });
+  }
   const roundIx = start.roundIx as number;
   let last: any;
   for (const s of start.servings as Array<{ qIx: number }>) {
@@ -121,10 +129,12 @@ async function playRound(
   return last;
 }
 
-async function newDuel(): Promise<string> {
+async function newDuel(
+  categoryMode: "pick" | "spin" | "auto" = "spin",
+): Promise<string> {
   const { matchId } = await call(A, "v1_createDuel", {
     opponentUid: B.uid,
-    categoryMode: "spin",
+    categoryMode,
   });
   return matchId;
 }
@@ -168,6 +178,35 @@ beforeAll(async () => {
 
   A = await makeClient("itA");
   B = await makeClient("itB");
+
+  // Both players are Hebrew (GDD §4.7 same-language rule). The profile is written
+  // by the client itself — exercising the owner-write rule whitelist.
+  await setProfile(A, "he");
+  await setProfile(B, "he");
+});
+
+// Write a player's own profile via the client (rules allow the preference-field
+// whitelist only). `language` is what the same-language duel rule reads.
+async function setProfile(c: Client, language: string): Promise<void> {
+  await setDoc(clientDoc(c.fs, `users/${c.uid}`), {
+    language,
+    isGuest: true,
+    createdAt: new Date(),
+  });
+}
+
+// Clear both clients' home projections so each test starts at 0 active duels —
+// the concurrency caps (GDD §4.6) read this collection, so leftover actives from
+// earlier tests would otherwise leak across cases.
+async function clearMatchLists(): Promise<void> {
+  for (const uid of [A.uid, B.uid]) {
+    const snap = await adminDb.collection(`users/${uid}/matchList`).get();
+    await Promise.all(snap.docs.map((d) => d.ref.delete()));
+  }
+}
+
+beforeEach(async () => {
+  await clearMatchLists();
 });
 
 afterAll(async () => {
@@ -306,5 +345,165 @@ describe("duel lifecycle", () => {
     expect(nm["players"][1]).toBe(A.uid);
     expect(nm["state"]).toBe("active");
     expect(nm["turnUid"]).toBe(B.uid);
+  });
+});
+
+describe("category modes (GDD §4.3)", () => {
+  it("spin returns a server-decided landing category as spinResult", async () => {
+    const matchId = await newDuel("spin");
+    const start = await call(A, "v1_startRound", { matchId });
+    expect(CATEGORIES).toContain(start.spinResult);
+    expect(start.spinResult).toBe(start.category);
+    expect(start.servings).toHaveLength(3);
+  });
+
+  it("pick offers a locked 3-category choice, then serves the chosen one", async () => {
+    const matchId = await newDuel("pick");
+
+    const offer = await call(A, "v1_startRound", { matchId });
+    expect(offer.needsPick).toBe(true);
+    expect(offer.offered).toHaveLength(3);
+    expect(new Set(offer.offered).size).toBe(3);
+    expect(offer.servings).toBeUndefined(); // no leak before the pick
+
+    // Re-asking without a choice returns the SAME locked offer (no reroll).
+    const again = await call(A, "v1_startRound", { matchId });
+    expect(again.offered).toEqual(offer.offered);
+
+    const chosen = offer.offered[1];
+    const served = await call(A, "v1_startRound", { matchId, categoryId: chosen });
+    expect(served.category).toBe(chosen);
+    expect(served.servings).toHaveLength(3);
+  });
+
+  it("rejects a pick that is not on the locked offer", async () => {
+    const matchId = await newDuel("pick");
+    const offer = await call(A, "v1_startRound", { matchId });
+    const notOffered = CATEGORIES.find((c) => !offer.offered.includes(c))!;
+    await expect(
+      call(A, "v1_startRound", { matchId, categoryId: notOffered }),
+    ).rejects.toMatchObject({
+      code: "functions/invalid-argument",
+      details: { field: "categoryId" },
+    });
+  });
+
+  it("auto never repeats a category across a match's rounds", async () => {
+    const matchId = await newDuel("auto");
+    await playToCompletionAWins(matchId);
+
+    const recaps = await adminDb
+      .collection(`matches/${matchId}/recaps`)
+      .get();
+    const cats = recaps.docs.map((d) => d.data()["category"] as string);
+    expect(cats.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(cats).size).toBe(cats.length); // all distinct
+  });
+});
+
+describe("same-language rule (GDD §4.7)", () => {
+  it("rejects a duel between players in different app languages", async () => {
+    const C = await makeClient("itC");
+    await setProfile(C, "en");
+    await expect(
+      call(A, "v1_createDuel", { opponentUid: C.uid, categoryMode: "spin" }),
+    ).rejects.toMatchObject({
+      code: "functions/failed-precondition",
+      details: { reason: "language-mismatch" },
+    });
+  });
+
+  it("rejects a duel against a player with no profile", async () => {
+    await expect(
+      call(A, "v1_createDuel", {
+        opponentUid: "ghost_no_profile",
+        categoryMode: "spin",
+      }),
+    ).rejects.toMatchObject({
+      code: "functions/not-found",
+      details: { reason: "user" },
+    });
+  });
+});
+
+describe("concurrency caps (GDD §4.6)", () => {
+  it("blocks a 4th active duel against the same opponent", async () => {
+    for (let i = 0; i < 3; i++) await newDuel("spin"); // 3 active A↔B
+    await expect(newDuel("spin")).rejects.toMatchObject({
+      code: "functions/resource-exhausted",
+      details: { reason: "max-duels-with-friend" },
+    });
+  });
+
+  it("blocks the 21st active duel overall", async () => {
+    // 21 distinct Hebrew opponents (profiles only — createDuel needs the language,
+    // not a live auth session for the opponent).
+    const batch = adminDb.batch();
+    for (let i = 0; i < 21; i++) {
+      batch.set(adminDb.doc(`users/cap_opp_${i}`), {
+        language: "he",
+        isGuest: true,
+      });
+    }
+    await batch.commit();
+
+    for (let i = 0; i < 20; i++) {
+      await call(A, "v1_createDuel", {
+        opponentUid: `cap_opp_${i}`,
+        categoryMode: "spin",
+      });
+    }
+    await expect(
+      call(A, "v1_createDuel", {
+        opponentUid: "cap_opp_20",
+        categoryMode: "spin",
+      }),
+    ).rejects.toMatchObject({
+      code: "functions/resource-exhausted",
+      details: { reason: "max-active-duels" },
+    });
+  });
+});
+
+describe("tie resolution (GDD §4.5)", () => {
+  it("breaks a score tie by total answer time — never leaves a round 'shared'", async () => {
+    const matchId = await newDuel("spin");
+    await playRound(A, matchId, false); // both all-wrong → equal score (0)
+    await playRound(B, matchId, false);
+
+    const recap = (await adminDb.doc(`matches/${matchId}/recaps/0`).get()).data()!;
+    expect([A.uid, B.uid]).toContain(recap["winner"]); // a real winner, not "shared"
+    const m = (await adminDb.doc(`matches/${matchId}`).get()).data()!;
+    expect(m["roundWins"][A.uid] + m["roundWins"][B.uid]).toBe(1);
+  });
+
+  it("re-deals fresh questions at the same round on an exact tie (replay)", async () => {
+    // Forcing a true points-and-time tie through live timing is astronomically
+    // rare (that's the GDD rationale), so inject the resolver's verdict — a round
+    // flagged needsReplay — and prove startRound re-deals it.
+    const matchId = await newDuel("spin");
+    await call(A, "v1_startRound", { matchId }); // round 0 created + A served (attempt 0)
+
+    await adminDb.doc(`matches/${matchId}/rounds/0`).update({
+      needsReplay: true,
+      winner: "shared",
+      perPlayer: {},
+    });
+
+    const redealt = await call(A, "v1_startRound", { matchId });
+    expect(redealt.servings).toHaveLength(3);
+
+    const round = (await adminDb.doc(`matches/${matchId}/rounds/0`).get()).data()!;
+    expect(round["attempt"]).toBe(1);
+    expect(round["needsReplay"]).toBe(false);
+    expect(round["isTiebreaker"]).toBe(true);
+    expect(round["questionIds"]).toHaveLength(3);
+
+    // The replay's servings live under the attempt-suffixed key, distinct from
+    // the tied attempt's docs.
+    const r1 = await adminDb
+      .doc(`servingsPrivate/${matchId}_0_0_${A.uid}_r1`)
+      .get();
+    expect(r1.exists).toBe(true);
   });
 });

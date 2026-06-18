@@ -1,23 +1,21 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "../firebase.js";
 import { getBalance } from "../config/balance.js";
-import { StartRoundRequestSchema } from "@trivia/api-contract";
+import {
+  StartRoundRequestSchema,
+  type Category,
+  type Difficulty,
+  type StartRoundResponse,
+} from "@trivia/api-contract";
 import { FUNCTIONS_REGION } from "../config/region.js";
-import { pickQuestion, loadQuestions, type BankQuestion } from "./questionBank.js";
+import { loadQuestions, pickRoundQuestions, type BankQuestion } from "./questionBank.js";
+import {
+  chooseAutoCategory,
+  chooseSpinCategory,
+  offerPickCategories,
+} from "./selectCategory.js";
 import { serveRoundForPlayer, loadServedRound } from "./roundServing.js";
 import type { MatchDoc, RoundDoc } from "../match/types.js";
-
-// The 8 categories (GDD §3.4) — structural, not a ⚖️ balance value.
-const CATEGORIES = [
-  "general_knowledge",
-  "sports",
-  "movies_tv",
-  "music",
-  "science_tech",
-  "history",
-  "geography",
-  "israel_local",
-] as const;
 
 export const v1_startRound = onCall({ region: FUNCTIONS_REGION }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Login required");
@@ -30,10 +28,11 @@ export const v1_startRound = onCall({ region: FUNCTIONS_REGION }, async (request
       field: parsed.error.issues[0]?.path.join(".") ?? "unknown",
     });
   }
-  const { matchId } = parsed.data;
+  const { matchId, categoryId } = parsed.data;
 
   const db = getFirestore();
   const balance = getBalance();
+  const composition = balance.match.roundComposition;
 
   const matchSnap = await db.doc(`matches/${matchId}`).get();
   if (!matchSnap.exists) {
@@ -58,58 +57,101 @@ export const v1_startRound = onCall({ region: FUNCTIONS_REGION }, async (request
   }
 
   const roundIx = match.currentRound;
-  const composition = balance.match.roundComposition;
+  const matchRef = db.doc(`matches/${matchId}`);
   const roundRef = db.doc(`matches/${matchId}/rounds/${roundIx}`);
+  const roundSnap = await roundRef.get();
+  const round = roundSnap.exists ? (roundSnap.data() as RoundDoc) : null;
+  const attempt = round?.attempt ?? 0;
 
-  // Idempotent replay: if this player was already served this round, return the
-  // identical servings without resetting the scoring clock (anti-cheat).
+  // Resolve this round's category + questions. Some pick-mode branches return a
+  // locked offer instead of serving; the rest fall through to a single serve.
+  let category: Category;
+  let questions: BankQuestion[];
+  let serveAttempt = attempt;
+
+  if (round?.needsReplay) {
+    // Tie replay (GDD §4.5): re-deal fresh questions at the same roundIx, same
+    // category. Only the starter reaches here (turn was flipped back on the tie).
+    // Checked BEFORE the idempotent-serve guard below: the starter WAS served at
+    // the tied attempt, so that guard would otherwise return the stale servings.
+    serveAttempt = attempt + 1;
+    category = round.category as Category;
+    questions = await pickRoundQuestions(db, {
+      language: match.language,
+      category,
+      composition,
+    });
+    await roundRef.set({
+      ...round,
+      questionIds: questions.map((q) => q.id),
+      difficulties: questions.map((q) => q.difficulty),
+      perPlayer: {},
+      winner: null,
+      isTiebreaker: true,
+      needsReplay: false,
+      attempt: serveAttempt,
+    } satisfies RoundDoc);
+    const servings = await serveRoundForPlayer(db, {
+      matchId,
+      roundIx,
+      uid,
+      questions,
+      attempt: serveAttempt,
+    });
+    return served(roundIx, category, servings, match);
+  }
+
+  // Idempotent replay: a player already served this round (at the current attempt)
+  // gets the identical servings without resetting the scoring clock (anti-cheat).
   const alreadyServed = await loadServedRound(db, {
     matchId,
     roundIx,
     uid,
+    attempt,
     count: composition.length,
   });
   if (alreadyServed) {
-    const round = (await roundRef.get()).data() as RoundDoc;
-    return { roundIx, category: round.category, servings: alreadyServed };
+    return served(roundIx, round!.category as Category, alreadyServed, match);
   }
 
-  // Lock questions on first serve (GDD §4.1); the second player reuses them.
-  const roundSnap = await roundRef.get();
-  let category: string;
-  let questions: BankQuestion[];
-
-  if (roundSnap.exists) {
-    const round = roundSnap.data() as RoundDoc;
-    category = round.category;
+  if (round && round.questionIds.length > 0) {
+    // Round already locked (the opponent's turn, or the starter re-entering
+    // before answering): reuse the locked questions (GDD §4.1).
+    category = round.category as Category;
     questions = await loadQuestions(db, round.questionIds);
-  } else {
-    // Phase 3: a single random category per round. Modes pick/spin/auto land in
-    // Phase 4; until then `categoryId` from the request is ignored.
-    category = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)]!;
-    const used: string[] = [];
-    questions = [];
-    for (const difficulty of composition) {
-      const q = await pickQuestion(db, {
-        language: match.language,
-        category,
-        difficulty,
-        excludeIds: used,
-      });
-      used.push(q.id);
-      questions.push(q);
+  } else if (round?.offeredCategories) {
+    // pick mode, second call: the starter chooses from the locked offer.
+    if (!categoryId) {
+      return { needsPick: true, roundIx, offered: round.offeredCategories as Category[] };
     }
-
-    const round: RoundDoc = {
+    if (!round.offeredCategories.includes(categoryId)) {
+      throw new HttpsError("invalid-argument", "Category not on offer", {
+        reason: "invalid-argument",
+        field: "categoryId",
+      });
+    }
+    category = categoryId;
+    questions = await lockCategory(db, matchRef, roundRef, round, match, category, composition);
+  } else {
+    // First entry to this round by the starter.
+    if (match.categoryMode === "pick") {
+      const offered = offerPickCategories(match.usedCategories);
+      await roundRef.set(emptyRound(match, roundIx, { offeredCategories: offered }));
+      return { needsPick: true, roundIx, offered };
+    }
+    category =
+      match.categoryMode === "spin"
+        ? chooseSpinCategory()
+        : chooseAutoCategory(match.usedCategories);
+    questions = await lockCategory(
+      db,
+      matchRef,
+      roundRef,
+      emptyRound(match, roundIx, {}),
+      match,
       category,
-      questionIds: questions.map((q) => q.id),
-      difficulties: questions.map((q) => q.difficulty),
-      starterUid: match.players[roundIx % 2]!,
-      perPlayer: {},
-      winner: null,
-      isTiebreaker: false,
-    };
-    await roundRef.set(round);
+      composition,
+    );
   }
 
   const servings = await serveRoundForPlayer(db, {
@@ -117,7 +159,72 @@ export const v1_startRound = onCall({ region: FUNCTIONS_REGION }, async (request
     roundIx,
     uid,
     questions,
+    attempt: serveAttempt,
   });
-
-  return { roundIx, category, servings };
+  return served(roundIx, category, servings, match);
 });
+
+// A round doc with no questions locked yet (pick-offer pending, or the scaffold
+// the spin/auto path immediately fills via lockCategory).
+function emptyRound(
+  match: MatchDoc,
+  roundIx: number,
+  over: Partial<RoundDoc>,
+): RoundDoc {
+  return {
+    category: "",
+    questionIds: [],
+    difficulties: [],
+    starterUid: match.players[roundIx % 2]!,
+    perPlayer: {},
+    winner: null,
+    isTiebreaker: false,
+    offeredCategories: null,
+    attempt: 0,
+    needsReplay: false,
+    ...over,
+  };
+}
+
+// Lock a round's category + questions (GDD §4.1) and record the category against
+// the match's no-repeat history (used by auto mode, harmless for the others).
+async function lockCategory(
+  db: FirebaseFirestore.Firestore,
+  matchRef: FirebaseFirestore.DocumentReference,
+  roundRef: FirebaseFirestore.DocumentReference,
+  round: RoundDoc,
+  match: MatchDoc,
+  category: Category,
+  composition: Difficulty[],
+): Promise<BankQuestion[]> {
+  const questions = await pickRoundQuestions(db, {
+    language: match.language,
+    category,
+    composition,
+  });
+  await roundRef.set({
+    ...round,
+    category,
+    questionIds: questions.map((q) => q.id),
+    difficulties: questions.map((q) => q.difficulty),
+    offeredCategories: null,
+  } satisfies RoundDoc);
+  await matchRef.update({ usedCategories: [...match.usedCategories, category] });
+  return questions;
+}
+
+// Shape the served response, attaching spinResult only for spin mode (the wheel's
+// landing — outcome server-decided, animation is theater; doc 07 §2.2).
+function served(
+  roundIx: number,
+  category: Category,
+  servings: Awaited<ReturnType<typeof serveRoundForPlayer>>,
+  match: MatchDoc,
+): Extract<StartRoundResponse, { servings: unknown }> {
+  return {
+    roundIx,
+    category,
+    servings,
+    ...(match.categoryMode === "spin" ? { spinResult: category } : {}),
+  };
+}

@@ -81,6 +81,28 @@ export async function pickQuestion(
   return pick;
 }
 
+// Pick a full round's questions for one category in serve order (1E/1M/1H per
+// `composition`), excluding within-round repeats. Used to lock a round's
+// questions (GDD §4.1) and to re-deal a tie replay (GDD §4.5).
+export async function pickRoundQuestions(
+  db: Firestore,
+  opts: { language: string; category: string; composition: Difficulty[] },
+): Promise<BankQuestion[]> {
+  const used: string[] = [];
+  const questions: BankQuestion[] = [];
+  for (const difficulty of opts.composition) {
+    const q = await pickQuestion(db, {
+      language: opts.language,
+      category: opts.category,
+      difficulty,
+      excludeIds: used,
+    });
+    used.push(q.id);
+    questions.push(q);
+  }
+  return questions;
+}
+
 // Load specific bank questions by id, preserving the requested order. Used when
 // the second player of a round must receive the SAME questions the starter
 // locked in (GDD §4.1 — questions locked at first serve).

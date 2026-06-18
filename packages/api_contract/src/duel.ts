@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CategoryModeSchema, DifficultySchema } from "./common.js";
+import { CategoryModeSchema, CategorySchema, DifficultySchema } from "./common.js";
 import { ServingSchema } from "./serving.js";
 
 // Duel lifecycle callable contracts (doc 07 §2.2). All integrity writes happen
@@ -34,23 +34,45 @@ export const AcceptRematchResponseSchema = z
 export type AcceptRematchResponse = z.infer<typeof AcceptRematchResponseSchema>;
 
 // --- v1_startRound -----------------------------------------------------------
-// `categoryId` is required iff mode=pick & it's the player's pick-turn (Phase 4);
-// in Phase 3 the server always picks a single random category and ignores it.
+// `categoryId` is the player's chosen category on the SECOND call of a pick-mode
+// round (GDD §4.3); it must be one of the three offered by the first call. For
+// spin/auto modes it is omitted (the server decides).
 export const StartRoundRequestSchema = z
   .object({
     matchId: z.string().min(1),
-    categoryId: z.string().min(1).optional(),
+    categoryId: CategorySchema.optional(),
   })
   .strict();
 export type StartRoundRequest = z.infer<typeof StartRoundRequestSchema>;
 
-export const StartRoundResponseSchema = z
+// A round was served: 3 questions for this player. `spinResult` is present only
+// for spin mode (the wheel's landing category — outcome decided server-side, the
+// animation is theater; doc 07 §2.2).
+export const StartRoundServedSchema = z
   .object({
     roundIx: z.number().int().min(0).max(4),
-    category: z.string().min(1),
+    category: CategorySchema,
     servings: z.array(ServingSchema).length(3),
+    spinResult: CategorySchema.optional(),
   })
   .strict();
+export type StartRoundServed = z.infer<typeof StartRoundServedSchema>;
+
+// pick mode, first call: the locked 3-category offer the starter must choose from
+// (no reroll). The client calls v1_startRound again with the chosen `categoryId`.
+export const StartRoundOfferSchema = z
+  .object({
+    needsPick: z.literal(true),
+    roundIx: z.number().int().min(0).max(4),
+    offered: z.array(CategorySchema).length(3),
+  })
+  .strict();
+export type StartRoundOffer = z.infer<typeof StartRoundOfferSchema>;
+
+export const StartRoundResponseSchema = z.union([
+  StartRoundServedSchema,
+  StartRoundOfferSchema,
+]);
 export type StartRoundResponse = z.infer<typeof StartRoundResponseSchema>;
 
 // --- Round / match resolution payloads --------------------------------------

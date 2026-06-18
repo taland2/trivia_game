@@ -6,6 +6,8 @@ import {
   CreateDuelRequestSchema,
   StartRoundRequestSchema,
   StartRoundResponseSchema,
+  StartRoundServedSchema,
+  StartRoundOfferSchema,
   RoundResultSchema,
   MatchResultSchema,
 } from "./index.js";
@@ -159,36 +161,63 @@ describe("CreateDuelRequestSchema", () => {
 });
 
 describe("StartRoundRequestSchema / StartRoundResponseSchema", () => {
-  it("requires a matchId; categoryId is optional", () => {
+  const serving = (qIx: number) => ({
+    servingId: `sv_${qIx}`,
+    qIx,
+    difficulty: "easy" as const,
+    timeLimitMs: 10000,
+    text: "Q?",
+    answers: ["A", "B", "C", "D"],
+  });
+  const served = {
+    roundIx: 0,
+    category: "sports" as const,
+    servings: [serving(0), serving(1), serving(2)],
+  };
+
+  it("requires a matchId; categoryId is optional but enum-constrained", () => {
     expect(StartRoundRequestSchema.parse({ matchId: "m1" })).toEqual({
       matchId: "m1",
     });
     expect(() => StartRoundRequestSchema.parse({})).toThrow();
+    // categoryId must be one of the 8 launch categories (GDD §3.4).
+    expect(() =>
+      StartRoundRequestSchema.parse({ matchId: "m1", categoryId: "not_a_cat" }),
+    ).toThrow();
   });
 
-  it("requires exactly 3 servings and a round in 0..4", () => {
-    const serving = (qIx: number) => ({
-      servingId: `sv_${qIx}`,
-      qIx,
-      difficulty: "easy" as const,
-      timeLimitMs: 10000,
-      text: "Q?",
-      answers: ["A", "B", "C", "D"],
-    });
-    expect(
-      StartRoundResponseSchema.parse({
-        roundIx: 0,
-        category: "sports",
-        servings: [serving(0), serving(1), serving(2)],
-      }).servings,
-    ).toHaveLength(3);
+  it("accepts a served round with exactly 3 servings and a round in 0..4", () => {
+    const parsed = StartRoundServedSchema.parse(served);
+    expect(parsed.servings).toHaveLength(3);
     expect(() =>
-      StartRoundResponseSchema.parse({
-        roundIx: 5,
-        category: "sports",
-        servings: [serving(0), serving(1), serving(2)],
-      }),
+      StartRoundServedSchema.parse({ ...served, roundIx: 5 }),
     ).toThrow();
+  });
+
+  it("carries spinResult only as an optional category in served responses", () => {
+    expect(
+      StartRoundServedSchema.parse({ ...served, spinResult: "sports" })
+        .spinResult,
+    ).toBe("sports");
+    expect(() =>
+      StartRoundServedSchema.parse({ ...served, spinResult: "wat" }),
+    ).toThrow();
+  });
+
+  it("accepts the pick-mode locked offer of exactly 3 categories", () => {
+    const offer = {
+      needsPick: true as const,
+      roundIx: 2,
+      offered: ["sports", "music", "history"] as const,
+    };
+    expect(StartRoundOfferSchema.parse(offer).offered).toHaveLength(3);
+    // The union resolves either variant.
+    expect(StartRoundResponseSchema.parse(offer)).toMatchObject({
+      needsPick: true,
+    });
+    expect(StartRoundResponseSchema.parse(served)).toMatchObject({
+      category: "sports",
+    });
   });
 });
 
