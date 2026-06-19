@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:math';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'theme/tokens.dart';
+import 'theme/category_colors.dart';
+import 'widgets/countdown_ring.dart';
+import 'widgets/answer_button.dart';
+import 'services/audio_service.dart';
 
-// A single question card: shows question text, 4 answers, a visual countdown,
-// and calls v1_submitAnswer when the user taps or time runs out.
-//
-// The widget is stateless about round context — RoundScreen owns the serving
-// list and wires the callbacks. QuestionScreen handles only one question at a time.
 class QuestionScreen extends StatefulWidget {
   const QuestionScreen({
     super.key,
@@ -20,12 +22,8 @@ class QuestionScreen extends StatefulWidget {
 
   final String matchId;
   final Map<String, dynamic> serving;
-
-  // 1-based index shown to the user (e.g. "שאלה 2/3").
   final int questionNumber;
   final int totalQuestions;
-
-  // Called with (correctIx, points, roundDone) after the server responds.
   final void Function(int correctIx, int points, bool roundDone) onResult;
 
   @override
@@ -43,11 +41,13 @@ class _QuestionScreenState extends State<QuestionScreen> {
   late List<String> _answers;
   late int _timeLimitMs;
   late String _difficulty;
+  late String _category;
 
-  // Visual-only countdown (server clock is authoritative per doc 06 §4).
   late DateTime _servedAt;
   Timer? _ticker;
+  Timer? _secondTicker;
   double _timerFraction = 1.0;
+  bool _timerExpired = false;
 
   @override
   void initState() {
@@ -58,6 +58,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
     _answers = List<String>.from(s['answers'] as List);
     _timeLimitMs = (s['timeLimitMs'] as num).toInt();
     _difficulty = s['difficulty'] as String;
+    _category = s['category'] as String? ?? 'general_knowledge';
     _servedAt = DateTime.now();
     _startVisualTimer();
   }
@@ -65,6 +66,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
   @override
   void dispose() {
     _ticker?.cancel();
+    _secondTicker?.cancel();
     super.dispose();
   }
 
@@ -73,10 +75,21 @@ class _QuestionScreenState extends State<QuestionScreen> {
       if (!mounted) return;
       final elapsed = DateTime.now().difference(_servedAt).inMilliseconds;
       final fraction = 1.0 - (elapsed / _timeLimitMs).clamp(0.0, 1.0);
+
       setState(() => _timerFraction = fraction);
-      if (fraction <= 0) {
+
+      if (fraction <= 0 && !_timerExpired) {
+        _timerExpired = true;
         _ticker?.cancel();
         if (_selectedIx == null) _submitAnswer(null);
+      }
+    });
+
+    _secondTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final elapsed = DateTime.now().difference(_servedAt).inMilliseconds;
+      final remaining = _timeLimitMs - elapsed;
+      if (remaining > 0 && remaining <= 3000) {
+        AudioService().play('tick');
       }
     });
   }
@@ -84,7 +97,10 @@ class _QuestionScreenState extends State<QuestionScreen> {
   Future<void> _submitAnswer(int? answerIx) async {
     if (_selectedIx != null) return;
     _ticker?.cancel();
+    _secondTicker?.cancel();
+
     setState(() => _selectedIx = answerIx ?? -1);
+    HapticFeedback.lightImpact();
 
     try {
       final fn = FirebaseFunctions.instanceFor(region: 'me-west1');
@@ -95,18 +111,51 @@ class _QuestionScreenState extends State<QuestionScreen> {
         'answerIx': answerIx,
         'idempotencyKey': _uuid(),
       });
+
       final data = result.data;
       final correctIx = (data['correctIx'] as num).toInt();
       final points = (data['points'] as num).toInt();
       final roundDone = data['roundDone'] as bool? ?? false;
+
       setState(() {
         _correctIx = correctIx;
         _points = points;
       });
+
+      if (answerIx == correctIx) {
+        HapticFeedback.mediumImpact();
+        await AudioService().play('correct');
+      } else {
+        HapticFeedback.heavyImpact();
+        await AudioService().play('wrong');
+      }
+
+      await Future.delayed(const Duration(milliseconds: 500));
+      _showPointsFlyUp(points);
+
+      await Future.delayed(const Duration(milliseconds: 2000));
       widget.onResult(correctIx, points, roundDone);
     } catch (e) {
       setState(() => _error = e.toString());
     }
+  }
+
+  void _showPointsFlyUp(int points) {
+    if (!mounted) return;
+    final base = points ~/ 2;
+    final bonus = points - base;
+    final text = '$base + $bonus ⚡';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.transparent,
+      builder: (_) => _PointsFlyUp(text: text),
+    );
+
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) Navigator.of(context).pop();
+    });
   }
 
   @override
@@ -114,15 +163,18 @@ class _QuestionScreenState extends State<QuestionScreen> {
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, color: Colors.white, size: 48),
-              const SizedBox(height: 16),
+              const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 _error!,
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -131,25 +183,49 @@ class _QuestionScreenState extends State<QuestionScreen> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildHeader(),
-          const SizedBox(height: 12),
-          _buildTimer(),
-          const SizedBox(height: 24),
-          _buildQuestion(),
-          const SizedBox(height: 32),
-          ..._buildAnswers(),
-          if (_correctIx != null) ...[
-            const SizedBox(height: 24),
-            _buildResult(),
-          ],
-        ],
+    final categoryColor = CategoryColors.getColor(_category);
+    final buttonStates = _getButtonStates();
+
+    return GestureDetector(
+      onTap: _correctIx != null ? () => widget.onResult(_correctIx!, _points!, false) : null,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: AppSpacing.md),
+              CountdownRing(fraction: _timerFraction),
+              const SizedBox(height: AppSpacing.xl),
+              _buildQuestionCard(categoryColor),
+              const SizedBox(height: AppSpacing.xl),
+              _buildAnswerGrid(buttonStates),
+              const SizedBox(height: AppSpacing.lg),
+              _buildProgressText(),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  List<AnswerButtonState> _getButtonStates() {
+    if (_correctIx == null) {
+      return List.generate(_answers.length, (i) {
+        if (_selectedIx == i) return AnswerButtonState.locked;
+        if (_selectedIx != null) return AnswerButtonState.dimmed;
+        return AnswerButtonState.idle;
+      });
+    } else {
+      return List.generate(_answers.length, (i) {
+        if (i == _correctIx) return AnswerButtonState.correct;
+        if (i == _selectedIx && _selectedIx != _correctIx) {
+          return AnswerButtonState.wrong;
+        }
+        return AnswerButtonState.dimmed;
+      });
+    }
   }
 
   Widget _buildHeader() {
@@ -159,49 +235,46 @@ class _QuestionScreenState extends State<QuestionScreen> {
       'hard' => 'קשה',
       _ => _difficulty,
     };
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           'שאלה ${widget.questionNumber}/${widget.totalQuestions}',
-          style: const TextStyle(color: Colors.white70, fontSize: 15),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.xs,
+          ),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(38),
-            borderRadius: BorderRadius.circular(20),
+            color: AppColors.surfacePrimary,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
           child: Text(
             diffLabel,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildTimer() {
-    final color = _timerFraction > 0.5
-        ? Colors.white
-        : _timerFraction > 0.25
-            ? Colors.yellow
-            : Colors.red;
-    return LinearProgressIndicator(
-      value: _timerFraction,
-      backgroundColor: Colors.white24,
-      valueColor: AlwaysStoppedAnimation<Color>(color),
-      minHeight: 6,
-    );
-  }
-
-  Widget _buildQuestion() {
+  Widget _buildQuestionCard(Color categoryAccent) {
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(26),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white.withAlpha(38),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border(
+          top: BorderSide(color: categoryAccent, width: 4),
+        ),
       ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Text(
         _text,
         style: const TextStyle(
@@ -211,64 +284,37 @@ class _QuestionScreenState extends State<QuestionScreen> {
           height: 1.4,
         ),
         textAlign: TextAlign.center,
-        textDirection: TextDirection.rtl,
       ),
     );
   }
 
-  List<Widget> _buildAnswers() {
-    return List.generate(_answers.length, (i) {
-      final answered = _correctIx != null;
-      Color bg = Colors.white.withAlpha(38);
-      Color fg = Colors.white;
-
-      if (answered) {
-        if (i == _correctIx) {
-          bg = Colors.green.shade600;
-        } else if (i == _selectedIx) {
-          bg = Colors.red.shade600;
-        } else {
-          bg = Colors.white.withAlpha(20);
-          fg = Colors.white54;
-        }
-      } else if (i == _selectedIx) {
-        bg = Colors.white.withAlpha(77);
-      }
-
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: GestureDetector(
-          onTap: answered || _selectedIx != null ? null : () => _submitAnswer(i),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Text(
-              _answers[i],
-              style: TextStyle(color: fg, fontSize: 17),
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.rtl,
-            ),
-          ),
-        ),
-      );
-    });
+  Widget _buildAnswerGrid(List<AnswerButtonState> states) {
+    return GridView.count(
+      crossAxisCount: 2,
+      crossAxisSpacing: AppSpacing.md,
+      mainAxisSpacing: AppSpacing.md,
+      childAspectRatio: 2.5,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: List.generate(_answers.length, (i) {
+        return AnswerButton(
+          text: _answers[i],
+          index: i,
+          state: states[i],
+          onTap: () => _submitAnswer(i),
+        );
+      }),
+    );
   }
 
-  Widget _buildResult() {
-    final correct = _selectedIx == _correctIx;
-    return Text(
-      correct ? '✓  +$_points נקודות' : '✗  שגוי',
-      style: TextStyle(
-        color: correct ? Colors.greenAccent : Colors.redAccent,
-        fontSize: 22,
-        fontWeight: FontWeight.bold,
+  Widget _buildProgressText() {
+    return Center(
+      child: Text(
+        'שאלה ${widget.questionNumber}/${widget.totalQuestions}',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Colors.white70,
+        ),
       ),
-      textAlign: TextAlign.center,
     );
   }
 
@@ -281,5 +327,37 @@ class _QuestionScreenState extends State<QuestionScreen> {
     return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
         '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
         '${hex.substring(20, 32)}';
+  }
+}
+
+class _PointsFlyUp extends StatelessWidget {
+  final String text;
+
+  const _PointsFlyUp({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+
+    Widget child = Text(
+      '+$text',
+      style: const TextStyle(
+        color: AppColors.success,
+        fontSize: 28,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+
+    if (!reduceMotion) {
+      child = child
+          .animate()
+          .moveY(begin: 0, end: -80, duration: const Duration(milliseconds: 600))
+          .then()
+          .fadeOut(duration: const Duration(milliseconds: 400));
+    }
+
+    return Center(
+      child: child,
+    );
   }
 }

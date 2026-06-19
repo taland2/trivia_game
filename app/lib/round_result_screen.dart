@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'theme/tokens.dart';
+import 'theme/category_colors.dart';
+import 'services/audio_service.dart';
 
 class RoundQuestionResult {
   const RoundQuestionResult({
@@ -29,27 +33,33 @@ class RoundResultScreen extends StatelessWidget {
     final totalPoints = results.fold(0, (sum, r) => sum + r.points);
     final correct = results.where((r) => r.wasCorrect).length;
 
+    final categoryAccent = CategoryColors.getColor(category);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF6C63FF),
+      backgroundColor: AppColors.surfacePrimary,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 16),
-              _buildHeader(correct, totalPoints),
-              const SizedBox(height: 32),
+              const SizedBox(height: AppSpacing.md),
+              _buildHeader(correct, totalPoints, categoryAccent),
+              const SizedBox(height: AppSpacing.xl),
               _buildBreakdown(),
               const Spacer(),
               ElevatedButton(
-                onPressed: onPlayAgain,
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  AudioService().play('whoosh');
+                  onPlayAgain();
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF6C63FF),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  foregroundColor: AppColors.surfacePrimary,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
                   ),
                 ),
                 child: const Text(
@@ -57,7 +67,7 @@ class RoundResultScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
             ],
           ),
         ),
@@ -65,7 +75,7 @@ class RoundResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(int correct, int totalPoints) {
+  Widget _buildHeader(int correct, int totalPoints, Color categoryAccent) {
     final categoryLabel = _categoryLabel(category);
     return Column(
       children: [
@@ -78,18 +88,17 @@ class RoundResultScreen extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.sm),
         Text(
           categoryLabel,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: categoryAccent,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
           textAlign: TextAlign.center,
-          textDirection: TextDirection.rtl,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xl),
         Text(
           '$totalPoints',
           style: const TextStyle(
@@ -100,7 +109,7 @@ class RoundResultScreen extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           'נקודות · $correct/${results.length} נכון',
           style: const TextStyle(color: Colors.white70, fontSize: 16),
@@ -120,11 +129,14 @@ class RoundResultScreen extends StatelessWidget {
         final iconColor = r.wasCorrect ? Colors.greenAccent : Colors.redAccent;
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+          margin: const EdgeInsets.only(bottom: AppSpacing.md),
+          padding: const EdgeInsets.symmetric(
+            vertical: 14,
+            horizontal: AppSpacing.md,
+          ),
           decoration: BoxDecoration(
             color: Colors.white.withAlpha(26),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           child: Row(
             children: [
@@ -141,7 +153,6 @@ class RoundResultScreen extends StatelessWidget {
                 child: Text(
                   'שאלה ${i + 1} — $diffLabel',
                   style: const TextStyle(color: Colors.white, fontSize: 16),
-                  textDirection: TextDirection.rtl,
                 ),
               ),
               Text(

@@ -304,6 +304,18 @@ Iterate by screenshots/builds together — this phase is interactive by design.
 **Exit checkpoint:** the question screen feels properly juicy on a real Android device,
 in Hebrew and English.
 
+> **2026-06-19 — Phase 5 ✅ complete.** Design system established + question screen fully rewritten.
+> **Design tokens:** `app/lib/theme/tokens.dart` (`AppColors` with semantic pairs light/dark, `AppSpacing`/`AppRadius`/`AppDurations` constants) + `category_colors.dart` (8 colorblind-safe category accents) + `app_theme.dart` (ThemeData factory for light/dark, Rubik as default font; Heebo & Assistant bundled for bake-off).
+> **Audio:** `AudioService` singleton (just_audio wrapper, preload 5 SFX at app init, global mute toggle).
+> **Ring timer:** `CountdownRing` CustomPainter (circular arc, color interpolation green→amber→red, last 3s pulse + tick SFX, reduced-motion support).
+> **Answer buttons:** `AnswerButton` (flutter_animate: lock scale 0.96, reveal shake + icons, state-driven color/opacity).
+> **Points fly-up:** `_PointsFlyUp` overlay (MoveEffect -80px + FadeEffect, reduced-motion skips movement).
+> **Question screen rewrite:** 2×2 GridView (not vertical list), category accent top border, haptics on lock/correct/wrong, reveal interstitial 2.5s (tappable to skip), dynamic locale via Directionality.
+> **Minor updates:** `RoundScreen` now plays 'whoosh' SFX + wires 2.5s auto-advance; `RoundResultScreen` uses category color for header + plays whoosh on "play again" + haptic feedback.
+> **Packages added:** flutter_animate ^4.5.0, just_audio ^0.9.40; fonts bundled (Rubik/Heebo/Assistant).
+> **Assets:** placeholder SFX files (silent MP3s) in `assets/sfx/` — production audio sources pending Phase 10.
+> All tests still pass (flutter analyze clean). App builds with dev flavor. **Ready to run on Android device for real-world juice verification** (Phase 6 next).
+
 ## Phase 6 — App Shell & Home
 *Refs: doc 04 §2–3*
 
@@ -405,8 +417,8 @@ operating period, not a build phase).
 | 2 — Round engine | ✅ | 2026-06-14 | afd89a5 |
 | 3 — Duels | ✅ | 2026-06-17 | 883da14 |
 | 4a — Core duel rules | ✅ | 2026-06-18 | 666aa83 |
-| 4b — Jobs/economy → Gate A | ✅ | 2026-06-18 | (this commit) |
-| 5 — Design system | ☐ | | |
+| 4b — Jobs/economy → Gate A | ✅ | 2026-06-18 | 0874e88 |
+| 5 — Design system | ✅ | 2026-06-19 | (this commit) |
 | 6 — App shell | ☐ | | |
 | 7 — Daily/weekly/XP | ☐ | | |
 | 8 — Identity & friends | ☐ | | |

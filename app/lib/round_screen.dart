@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'question_screen.dart';
 import 'round_result_screen.dart';
+import 'services/audio_service.dart';
 
 // Orchestrates a full round: calls v1_startRound, shows 3 questions one at a time
 // with 1.5s auto-advance after each answer, then navigates to RoundResultScreen.
@@ -83,8 +84,10 @@ class _RoundScreenState extends State<RoundScreen> {
     if (_advancing) return;
     _advancing = true;
 
-    // Auto-advance after 1.5s so the user can read the feedback.
-    Future.delayed(const Duration(milliseconds: 1500), () {
+    AudioService().play('whoosh');
+
+    // Auto-advance after 2.5s so the user can read the feedback.
+    Future.delayed(const Duration(milliseconds: 2500), () {
       if (!mounted) return;
       _advancing = false;
       if (roundDone) {
