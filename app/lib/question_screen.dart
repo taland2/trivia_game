@@ -10,6 +10,58 @@ import 'widgets/countdown_ring.dart';
 import 'widgets/answer_button.dart';
 import 'services/audio_service.dart';
 
+/// Server response for a submitted answer, decoupled from the Firebase SDK so
+/// the screen can be widget-tested with an injected fake.
+class AnswerOutcome {
+  final int correctIx;
+  final int points;
+  final bool roundDone;
+  const AnswerOutcome({
+    required this.correctIx,
+    required this.points,
+    required this.roundDone,
+  });
+}
+
+typedef SubmitAnswerFn = Future<AnswerOutcome> Function({
+  required String matchId,
+  required int qIx,
+  required int? answerIx,
+});
+
+/// Default submit: calls the server-authoritative v1_submitAnswer callable.
+Future<AnswerOutcome> firebaseSubmitAnswer({
+  required String matchId,
+  required int qIx,
+  required int? answerIx,
+}) async {
+  final fn = FirebaseFunctions.instanceFor(region: 'me-west1');
+  final result = await fn.httpsCallable('v1_submitAnswer').call<Map>({
+    'matchId': matchId,
+    'roundIx': 0,
+    'qIx': qIx,
+    'answerIx': answerIx,
+    'idempotencyKey': _uuid(),
+  });
+  final data = result.data;
+  return AnswerOutcome(
+    correctIx: (data['correctIx'] as num).toInt(),
+    points: (data['points'] as num).toInt(),
+    roundDone: data['roundDone'] as bool? ?? false,
+  );
+}
+
+String _uuid() {
+  final rng = Random.secure();
+  final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+      '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
+      '${hex.substring(20, 32)}';
+}
+
 class QuestionScreen extends StatefulWidget {
   const QuestionScreen({
     super.key,
@@ -18,6 +70,8 @@ class QuestionScreen extends StatefulWidget {
     required this.questionNumber,
     required this.totalQuestions,
     required this.onResult,
+    this.submit = firebaseSubmitAnswer,
+    this.now = DateTime.now,
   });
 
   final String matchId;
@@ -25,6 +79,10 @@ class QuestionScreen extends StatefulWidget {
   final int questionNumber;
   final int totalQuestions;
   final void Function(int correctIx, int points, bool roundDone) onResult;
+
+  // Injectable seams for testing (default to real Firebase + wall clock).
+  final SubmitAnswerFn submit;
+  final DateTime Function() now;
 
   @override
   State<QuestionScreen> createState() => _QuestionScreenState();
@@ -49,6 +107,13 @@ class _QuestionScreenState extends State<QuestionScreen> {
   double _timerFraction = 1.0;
   bool _timerExpired = false;
 
+  // Fire-once latch: both the auto-advance delay and the tap-to-skip
+  // GestureDetector route through _dispatchResult, so onResult is called
+  // exactly once with the real roundDone. (RoundScreen._advancing is a second,
+  // cheaper line of defense.)
+  bool _resultDispatched = false;
+  bool _roundDone = false;
+
   @override
   void initState() {
     super.initState();
@@ -59,8 +124,14 @@ class _QuestionScreenState extends State<QuestionScreen> {
     _timeLimitMs = (s['timeLimitMs'] as num).toInt();
     _difficulty = s['difficulty'] as String;
     _category = s['category'] as String? ?? 'general_knowledge';
-    _servedAt = DateTime.now();
+    _servedAt = widget.now();
     _startVisualTimer();
+  }
+
+  void _dispatchResult() {
+    if (_resultDispatched || !mounted) return;
+    _resultDispatched = true;
+    widget.onResult(_correctIx!, _points!, _roundDone);
   }
 
   @override
@@ -73,7 +144,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
   void _startVisualTimer() {
     _ticker = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (!mounted) return;
-      final elapsed = DateTime.now().difference(_servedAt).inMilliseconds;
+      final elapsed = widget.now().difference(_servedAt).inMilliseconds;
       final fraction = 1.0 - (elapsed / _timeLimitMs).clamp(0.0, 1.0);
 
       setState(() => _timerFraction = fraction);
@@ -86,7 +157,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
     });
 
     _secondTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      final elapsed = DateTime.now().difference(_servedAt).inMilliseconds;
+      final elapsed = widget.now().difference(_servedAt).inMilliseconds;
       final remaining = _timeLimitMs - elapsed;
       if (remaining > 0 && remaining <= 3000) {
         AudioService().play('tick');
@@ -103,26 +174,20 @@ class _QuestionScreenState extends State<QuestionScreen> {
     HapticFeedback.lightImpact();
 
     try {
-      final fn = FirebaseFunctions.instanceFor(region: 'me-west1');
-      final result = await fn.httpsCallable('v1_submitAnswer').call<Map>({
-        'matchId': widget.matchId,
-        'roundIx': 0,
-        'qIx': _qIx,
-        'answerIx': answerIx,
-        'idempotencyKey': _uuid(),
-      });
+      final outcome = await widget.submit(
+        matchId: widget.matchId,
+        qIx: _qIx,
+        answerIx: answerIx,
+      );
 
-      final data = result.data;
-      final correctIx = (data['correctIx'] as num).toInt();
-      final points = (data['points'] as num).toInt();
-      final roundDone = data['roundDone'] as bool? ?? false;
-
+      if (!mounted) return;
       setState(() {
-        _correctIx = correctIx;
-        _points = points;
+        _correctIx = outcome.correctIx;
+        _points = outcome.points;
+        _roundDone = outcome.roundDone;
       });
 
-      if (answerIx == correctIx) {
+      if (answerIx == outcome.correctIx) {
         HapticFeedback.mediumImpact();
         await AudioService().play('correct');
       } else {
@@ -131,12 +196,12 @@ class _QuestionScreenState extends State<QuestionScreen> {
       }
 
       await Future.delayed(const Duration(milliseconds: 500));
-      _showPointsFlyUp(points);
+      _showPointsFlyUp(outcome.points);
 
       await Future.delayed(const Duration(milliseconds: 2000));
-      widget.onResult(correctIx, points, roundDone);
+      _dispatchResult();
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     }
   }
 
@@ -187,7 +252,9 @@ class _QuestionScreenState extends State<QuestionScreen> {
     final buttonStates = _getButtonStates();
 
     return GestureDetector(
-      onTap: _correctIx != null ? () => widget.onResult(_correctIx!, _points!, false) : null,
+      key: const ValueKey('question-root'),
+      behavior: HitTestBehavior.opaque,
+      onTap: _correctIx != null ? _dispatchResult : null,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -201,8 +268,6 @@ class _QuestionScreenState extends State<QuestionScreen> {
               _buildQuestionCard(categoryColor),
               const SizedBox(height: AppSpacing.xl),
               _buildAnswerGrid(buttonStates),
-              const SizedBox(height: AppSpacing.lg),
-              _buildProgressText(),
             ],
           ),
         ),
@@ -307,27 +372,6 @@ class _QuestionScreenState extends State<QuestionScreen> {
     );
   }
 
-  Widget _buildProgressText() {
-    return Center(
-      child: Text(
-        'שאלה ${widget.questionNumber}/${widget.totalQuestions}',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Colors.white70,
-        ),
-      ),
-    );
-  }
-
-  String _uuid() {
-    final rng = Random.secure();
-    final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
-        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
-        '${hex.substring(20, 32)}';
-  }
 }
 
 class _PointsFlyUp extends StatelessWidget {

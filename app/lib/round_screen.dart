@@ -6,8 +6,19 @@ import 'question_screen.dart';
 import 'round_result_screen.dart';
 import 'services/audio_service.dart';
 
+/// Builds the per-question result from the serving that produced it. Capturing
+/// the serving at result time avoids correlating by value later (a value-based
+/// lookup mislabels questions whose results happen to be identical).
+@visibleForTesting
+RoundQuestionResult roundResultFrom(Map<String, dynamic> serving, int points) =>
+    RoundQuestionResult(
+      difficulty: serving['difficulty'] as String,
+      points: points,
+      wasCorrect: points > 0,
+    );
+
 // Orchestrates a full round: calls v1_startRound, shows 3 questions one at a time
-// with 1.5s auto-advance after each answer, then navigates to RoundResultScreen.
+// with 2.5s auto-advance after each answer, then navigates to RoundResultScreen.
 class RoundScreen extends StatefulWidget {
   const RoundScreen({super.key});
 
@@ -26,10 +37,10 @@ class _RoundScreenState extends State<RoundScreen> {
   // Current question index (0–2). -1 = loading, 3 = round complete.
   int _currentQ = 0;
 
-  // Per-question results accumulated by this screen.
-  final List<({int correctIx, int points, bool wasCorrect})> _results = [];
+  // Per-question results accumulated by this screen, one per question in order.
+  final List<RoundQuestionResult> _results = [];
 
-  // Tracks whether we're in the 1.5s auto-advance pause.
+  // Tracks whether we're in the 2.5s auto-advance pause.
   bool _advancing = false;
 
   @override
@@ -74,14 +85,10 @@ class _RoundScreenState extends State<RoundScreen> {
   }
 
   void _onQuestionResult(int correctIx, int points, bool roundDone) {
-    // The serving tracks which answer was tapped; we just need correctIx & points here.
-    // QuestionScreen already shows ✓/✗; we collect results for the round summary.
-    // We derive wasCorrect in the result screen from correctIx vs selectedIx — but
-    // QuestionScreen owns selectedIx. So we ask: did they score > 0 AND it was correct?
-    // Actually we just store correctIx + points and let RoundResultScreen display them.
-    _results.add((correctIx: correctIx, points: points, wasCorrect: points > 0));
-
+    // QuestionScreen fires this exactly once per question (it owns a fire-once
+    // latch). We record the result against the serving currently on screen.
     if (_advancing) return;
+    _results.add(roundResultFrom(_servings[_currentQ], points));
     _advancing = true;
 
     AudioService().play('whoosh');
@@ -103,13 +110,7 @@ class _RoundScreenState extends State<RoundScreen> {
       MaterialPageRoute(
         builder: (_) => RoundResultScreen(
           category: _category ?? '',
-          results: _results
-              .map((r) => RoundQuestionResult(
-                    difficulty: _servings[_results.indexOf(r)]['difficulty'] as String,
-                    points: r.points,
-                    wasCorrect: r.wasCorrect,
-                  ))
-              .toList(),
+          results: List.of(_results),
           onPlayAgain: () {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const RoundScreen()),

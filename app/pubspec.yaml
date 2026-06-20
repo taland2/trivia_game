@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
   firebase_core: ^3.0.0
@@ -71,28 +73,18 @@ flutter:
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
 
+  # Variable fonts (wght axis): a single file covers all weights — Flutter
+  # interpolates the axis from the requested FontWeight.
   fonts:
     - family: Rubik
       fonts:
-        - asset: assets/fonts/Rubik-Regular.ttf
-        - asset: assets/fonts/Rubik-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/Rubik-Medium.ttf
-          weight: 500
+        - asset: assets/fonts/Rubik-VariableFont_wght.ttf
     - family: Heebo
       fonts:
-        - asset: assets/fonts/Heebo-Regular.ttf
-        - asset: assets/fonts/Heebo-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/Heebo-Medium.ttf
-          weight: 500
+        - asset: assets/fonts/Heebo-VariableFont_wght.ttf
     - family: Assistant
       fonts:
-        - asset: assets/fonts/Assistant-Regular.ttf
-        - asset: assets/fonts/Assistant-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/Assistant-Medium.ttf
-          weight: 500
+        - asset: assets/fonts/Assistant-VariableFont_wght.ttf
 
   assets:
     - assets/sfx/

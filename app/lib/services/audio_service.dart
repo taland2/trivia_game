@@ -12,15 +12,23 @@ class AudioService {
 
   final Map<String, AudioPlayer> _players = {};
   bool _muted = false;
+  bool _initialized = false;
 
   bool get muted => _muted;
 
+  @visibleForTesting
+  bool get isInitialized => _initialized;
+
   Future<void> initialize() async {
+    // Idempotent: a second call (e.g. dev hot-restart re-running initState)
+    // must not orphan the already-created AudioPlayers.
+    if (_initialized) return;
+    _initialized = true;
     try {
       const sounds = ['correct', 'wrong', 'tick', 'whoosh', 'fanfare'];
       for (final sound in sounds) {
         final player = AudioPlayer();
-        await player.setAsset('assets/sfx/$sound.mp3');
+        await player.setAsset('assets/sfx/$sound.wav');
         _players[sound] = player;
       }
     } catch (e) {
@@ -57,5 +65,6 @@ class AudioService {
       await player.dispose();
     }
     _players.clear();
+    _initialized = false;
   }
 }

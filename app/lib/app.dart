@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'round_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/audio_service.dart';
@@ -17,7 +19,9 @@ class _TriviaAppState extends State<TriviaApp> {
   @override
   void initState() {
     super.initState();
-    AudioService().initialize();
+    // Sound effects are intentionally fire-and-forget: the round can start
+    // before assets finish loading, and play() silently no-ops until then.
+    unawaited(AudioService().initialize());
   }
 
   @override

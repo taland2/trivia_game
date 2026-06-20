@@ -36,7 +36,6 @@ class _AnswerButtonState extends State<AnswerButton> {
   Widget _buildButton(bool reduceMotion) {
     final backgroundColor = _getBackgroundColor();
     final textColor = _getTextColor();
-    final scale = widget.state == AnswerButtonState.locked ? 0.96 : 1.0;
 
     Widget button = Container(
       constraints: const BoxConstraints(minHeight: 64),
