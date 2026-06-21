@@ -19,11 +19,19 @@ final matchListStreamProvider = StreamProvider<List<MatchListEntry>>((ref) {
   });
 });
 
-/// Active matches only (drops finished/forfeited), most-recent first.
+/// Active matches only (drops finished/forfeited), ordered pending-turn first
+/// then by recency. The partition is stable, so the upstream recency sort is
+/// preserved within each group (Home renders this list as-is).
 final activeMatchesProvider = Provider<AsyncValue<List<MatchListEntry>>>((ref) {
-  return ref.watch(matchListStreamProvider).whenData(
-        (entries) => entries.where((e) => e.isActive).toList(),
-      );
+  return ref.watch(matchListStreamProvider).whenData((entries) {
+    final pending = <MatchListEntry>[];
+    final rest = <MatchListEntry>[];
+    for (final e in entries) {
+      if (!e.isActive) continue;
+      (e.isPendingTurn ? pending : rest).add(e);
+    }
+    return [...pending, ...rest];
+  });
 });
 
 /// Matches awaiting the player's action now — drives the Home action list and a

@@ -4,7 +4,13 @@ import 'tokens.dart';
 const String fontFamily = 'Rubik';
 
 class AppTheme {
-  static ThemeData buildLightTheme() {
+  /// Built once, lazily. The theme is derived entirely from compile-time tokens,
+  /// so there's no reason to rebuild it on every [MaterialApp] rebuild (locale
+  /// changes trigger one) or just to read a color for the splash.
+  static final ThemeData light = _buildLightTheme();
+  static final ThemeData dark = _buildDarkTheme();
+
+  static ThemeData _buildLightTheme() {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
@@ -65,7 +71,7 @@ class AppTheme {
     );
   }
 
-  static ThemeData buildDarkTheme() {
+  static ThemeData _buildDarkTheme() {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,

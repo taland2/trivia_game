@@ -47,13 +47,8 @@ class _HomeBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    // Pending turns float to the top; the stream is already recency-sorted.
-    final sorted = [...matches]
-      ..sort((a, b) {
-        if (a.isPendingTurn == b.isPendingTurn) return 0;
-        return a.isPendingTurn ? -1 : 1;
-      });
-
+    // `matches` arrives already ordered pending-first then by recency
+    // (activeMatchesProvider), so it's rendered as-is.
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
@@ -63,7 +58,7 @@ class _HomeBody extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         Text(l.homePendingTurns, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.sm),
-        ...sorted.map((m) => MatchCard(entry: m)),
+        ...matches.map((m) => MatchCard(entry: m)),
       ],
     );
   }

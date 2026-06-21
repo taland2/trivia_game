@@ -103,12 +103,16 @@ class _WheelSpinState extends State<WheelSpin> with SingleTickerProviderStateMix
                   children: [
                     AnimatedBuilder(
                       animation: _turns,
-                      builder: (context, _) => Transform.rotate(
+                      // The wheel itself is static; only its rotation animates, so
+                      // it's built once and passed as `child` rather than rebuilt
+                      // (and the painter reallocated) every frame.
+                      child: CustomPaint(
+                        size: const Size(260, 260),
+                        painter: _WheelPainter(),
+                      ),
+                      builder: (context, child) => Transform.rotate(
                         angle: _turns.value,
-                        child: CustomPaint(
-                          size: const Size(260, 260),
-                          painter: _WheelPainter(),
-                        ),
+                        child: child,
                       ),
                     ),
                     // Fixed pointer at the top.

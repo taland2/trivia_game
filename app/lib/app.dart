@@ -35,8 +35,8 @@ class _TriviaAppState extends ConsumerState<TriviaApp> {
     return MaterialApp.router(
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       debugShowCheckedModeBanner: widget.flavor != AppFlavor.prod,
-      theme: AppTheme.buildLightTheme(),
-      darkTheme: AppTheme.buildDarkTheme(),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
       themeMode: ThemeMode.light, // MVP ships light only (UX spec §5)
       locale: locale,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -63,7 +63,7 @@ class _Splash extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.buildLightTheme().colorScheme.primary,
+      backgroundColor: AppTheme.light.colorScheme.primary,
       body: Center(
         child: failed
             ? const Icon(Icons.cloud_off, color: Colors.white, size: 48)

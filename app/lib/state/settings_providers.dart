@@ -38,14 +38,19 @@ const _kLanguage = 'pref.languageCode';
 /// (mute on [AudioService], enable flag on [HapticsService]) on load and change.
 /// Starts from defaults synchronously, then hydrates from disk asynchronously.
 class SettingsNotifier extends Notifier<Settings> {
+  SharedPreferences? _prefs;
+
   @override
   Settings build() {
     _load();
     return const Settings();
   }
 
+  Future<SharedPreferences> get _store async =>
+      _prefs ??= await SharedPreferences.getInstance();
+
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _store;
     final loaded = Settings(
       soundEnabled: prefs.getBool(_kSound) ?? true,
       hapticsEnabled: prefs.getBool(_kHaptics) ?? true,
@@ -63,20 +68,20 @@ class SettingsNotifier extends Notifier<Settings> {
   Future<void> setSoundEnabled(bool value) async {
     state = state.copyWith(soundEnabled: value);
     _apply(state);
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _store;
     await prefs.setBool(_kSound, value);
   }
 
   Future<void> setHapticsEnabled(bool value) async {
     state = state.copyWith(hapticsEnabled: value);
     _apply(state);
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _store;
     await prefs.setBool(_kHaptics, value);
   }
 
   Future<void> setLanguage(String code) async {
     state = state.copyWith(languageCode: code);
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _store;
     await prefs.setString(_kLanguage, code);
   }
 }
