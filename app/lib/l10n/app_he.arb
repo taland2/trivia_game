@@ -1,0 +1,99 @@
+{
+  "@@locale": "he",
+
+  "appTitle": "טריוויה",
+
+  "tabHome": "בית",
+  "tabPlay": "משחק",
+  "tabFriends": "חברים",
+  "tabProfile": "פרופיל",
+
+  "homeTitle": "בית",
+  "homePendingTurns": "תורות פתוחים",
+  "homeYourTurn": "תורך!",
+  "homeWaitingForOpponent": "ממתין ליריב",
+  "homeDailyCardTitle": "אתגר יומי",
+  "homeDailyCardSoon": "בקרוב",
+  "homeWeeklyCardTitle": "מרוץ שבועי",
+  "homeWeeklyCardSoon": "בקרוב",
+  "homeEmptyTitle": "אין עדיין דו-קרבות",
+  "homeEmptyBody": "הזמן חבר והתחילו לשחק",
+  "homeEmptyCta": "התחל דו-קרב",
+
+  "playTitle": "משחק",
+  "playStartDuel": "דו-קרב חדש",
+  "playStartDuelSubtitle": "בחר חבר ומצב קטגוריה",
+
+  "friendPickerTitle": "בחר יריב",
+  "friendPickerEmpty": "אין חברים זמינים",
+
+  "categoryModeTitle": "מצב בחירת קטגוריה",
+  "categoryModePick": "בחירת שחקן",
+  "categoryModePickDesc": "כל סבב בוחרים מתוך 3 קטגוריות",
+  "categoryModeSpin": "גלגל",
+  "categoryModeSpinDesc": "גלגל מזל בוחר קטגוריה אקראית",
+  "categoryModeAuto": "אוטומטי",
+  "categoryModeAutoDesc": "המערכת בוחרת מגוון מאוזן",
+
+  "categoryGeneralKnowledge": "ידע כללי",
+  "categorySports": "ספורט",
+  "categoryMoviesTv": "קולנוע וטלוויזיה",
+  "categoryMusic": "מוזיקה",
+  "categoryScienceTech": "מדע וטכנולוגיה",
+  "categoryHistory": "היסטוריה",
+  "categoryGeography": "גיאוגרפיה",
+  "categoryIsraelLocal": "ישראל ומקומי",
+
+  "roundPickCategoryTitle": "בחר קטגוריה",
+  "roundSpinning": "מסובב...",
+  "roundLandedOn": "יצא: {category}",
+  "@roundLandedOn": {
+    "placeholders": { "category": { "type": "String" } }
+  },
+
+  "friendsTitle": "חברים",
+  "friendsComingSoon": "הלוח השבועי והחברים יגיעו בקרוב",
+
+  "profileTitle": "פרופיל",
+  "profileGuest": "אורח",
+  "profileSettings": "הגדרות",
+  "profileComingSoon": "ההגדרות המלאות יגיעו בקרוב",
+
+  "questionLabel": "שאלה {current}/{total}",
+  "@questionLabel": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "difficultyEasy": "קל",
+  "difficultyMedium": "בינוני",
+  "difficultyHard": "קשה",
+
+  "roundResultTitle": "סיום סבב",
+  "roundResultScore": "נקודות · {correct}/{total} נכון",
+  "@roundResultScore": {
+    "placeholders": {
+      "correct": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "roundResultQuestionLine": "שאלה {number} — {difficulty}",
+  "@roundResultQuestionLine": {
+    "placeholders": {
+      "number": { "type": "int" },
+      "difficulty": { "type": "String" }
+    }
+  },
+  "roundResultBackHome": "חזרה לבית",
+
+  "commonRetry": "נסה שוב",
+  "commonError": "משהו השתבש",
+  "commonOffline": "אין חיבור לאינטרנט",
+  "commonLoading": "טוען...",
+
+  "matchVsOpponent": "מול {opponent}",
+  "@matchVsOpponent": {
+    "placeholders": { "opponent": { "type": "String" } }
+  }
+}

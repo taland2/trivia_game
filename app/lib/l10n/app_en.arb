@@ -1,0 +1,99 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Trivia",
+
+  "tabHome": "Home",
+  "tabPlay": "Play",
+  "tabFriends": "Friends",
+  "tabProfile": "Profile",
+
+  "homeTitle": "Home",
+  "homePendingTurns": "Your turns",
+  "homeYourTurn": "Your turn!",
+  "homeWaitingForOpponent": "Waiting for opponent",
+  "homeDailyCardTitle": "Daily Challenge",
+  "homeDailyCardSoon": "Coming soon",
+  "homeWeeklyCardTitle": "Weekly Race",
+  "homeWeeklyCardSoon": "Coming soon",
+  "homeEmptyTitle": "No duels yet",
+  "homeEmptyBody": "Invite a friend and start playing",
+  "homeEmptyCta": "Start a duel",
+
+  "playTitle": "Play",
+  "playStartDuel": "New duel",
+  "playStartDuelSubtitle": "Pick a friend and a category mode",
+
+  "friendPickerTitle": "Pick an opponent",
+  "friendPickerEmpty": "No friends available",
+
+  "categoryModeTitle": "Category mode",
+  "categoryModePick": "Player picks",
+  "categoryModePickDesc": "Each round choose from 3 categories",
+  "categoryModeSpin": "Spinner",
+  "categoryModeSpinDesc": "A wheel lands on a random category",
+  "categoryModeAuto": "Auto",
+  "categoryModeAutoDesc": "The system picks a balanced spread",
+
+  "categoryGeneralKnowledge": "General Knowledge",
+  "categorySports": "Sports",
+  "categoryMoviesTv": "Movies & TV",
+  "categoryMusic": "Music",
+  "categoryScienceTech": "Science & Tech",
+  "categoryHistory": "History",
+  "categoryGeography": "Geography",
+  "categoryIsraelLocal": "Israel & Local",
+
+  "roundPickCategoryTitle": "Pick a category",
+  "roundSpinning": "Spinning...",
+  "roundLandedOn": "Landed on {category}",
+  "@roundLandedOn": {
+    "placeholders": { "category": { "type": "String" } }
+  },
+
+  "friendsTitle": "Friends",
+  "friendsComingSoon": "Weekly leaderboard and friends are coming soon",
+
+  "profileTitle": "Profile",
+  "profileGuest": "Guest",
+  "profileSettings": "Settings",
+  "profileComingSoon": "Full settings are coming soon",
+
+  "questionLabel": "Question {current}/{total}",
+  "@questionLabel": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "difficultyEasy": "Easy",
+  "difficultyMedium": "Medium",
+  "difficultyHard": "Hard",
+
+  "roundResultTitle": "Round complete",
+  "roundResultScore": "points · {correct}/{total} correct",
+  "@roundResultScore": {
+    "placeholders": {
+      "correct": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "roundResultQuestionLine": "Question {number} — {difficulty}",
+  "@roundResultQuestionLine": {
+    "placeholders": {
+      "number": { "type": "int" },
+      "difficulty": { "type": "String" }
+    }
+  },
+  "roundResultBackHome": "Back home",
+
+  "commonRetry": "Try again",
+  "commonError": "Something went wrong",
+  "commonOffline": "No internet connection",
+  "commonLoading": "Loading...",
+
+  "matchVsOpponent": "vs {opponent}",
+  "@matchVsOpponent": {
+    "placeholders": { "opponent": { "type": "String" } }
+  }
+}

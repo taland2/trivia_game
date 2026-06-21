@@ -1,14 +1,12 @@
 import 'dart:async';
-import 'dart:math';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'theme/tokens.dart';
 import 'theme/category_colors.dart';
 import 'widgets/countdown_ring.dart';
 import 'widgets/answer_button.dart';
 import 'services/audio_service.dart';
+import 'services/haptics_service.dart';
 
 /// Server response for a submitted answer, decoupled from the Firebase SDK so
 /// the screen can be widget-tested with an injected fake.
@@ -23,64 +21,30 @@ class AnswerOutcome {
   });
 }
 
+/// Submits one answer. matchId + roundIx are bound by RoundScreen (which owns the
+/// real match context), so the screen only supplies the in-round coordinates.
 typedef SubmitAnswerFn = Future<AnswerOutcome> Function({
-  required String matchId,
   required int qIx,
   required int? answerIx,
 });
 
-/// Default submit: calls the server-authoritative v1_submitAnswer callable.
-Future<AnswerOutcome> firebaseSubmitAnswer({
-  required String matchId,
-  required int qIx,
-  required int? answerIx,
-}) async {
-  final fn = FirebaseFunctions.instanceFor(region: 'me-west1');
-  final result = await fn.httpsCallable('v1_submitAnswer').call<Map>({
-    'matchId': matchId,
-    'roundIx': 0,
-    'qIx': qIx,
-    'answerIx': answerIx,
-    'idempotencyKey': _uuid(),
-  });
-  final data = result.data;
-  return AnswerOutcome(
-    correctIx: (data['correctIx'] as num).toInt(),
-    points: (data['points'] as num).toInt(),
-    roundDone: data['roundDone'] as bool? ?? false,
-  );
-}
-
-String _uuid() {
-  final rng = Random.secure();
-  final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
-      '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
-      '${hex.substring(20, 32)}';
-}
-
 class QuestionScreen extends StatefulWidget {
   const QuestionScreen({
     super.key,
-    required this.matchId,
     required this.serving,
     required this.questionNumber,
     required this.totalQuestions,
     required this.onResult,
-    this.submit = firebaseSubmitAnswer,
+    required this.submit,
     this.now = DateTime.now,
   });
 
-  final String matchId;
   final Map<String, dynamic> serving;
   final int questionNumber;
   final int totalQuestions;
   final void Function(int correctIx, int points, bool roundDone) onResult;
 
-  // Injectable seams for testing (default to real Firebase + wall clock).
+  // Injectable seams for testing (submit is bound to the match by RoundScreen).
   final SubmitAnswerFn submit;
   final DateTime Function() now;
 
@@ -171,11 +135,10 @@ class _QuestionScreenState extends State<QuestionScreen> {
     _secondTicker?.cancel();
 
     setState(() => _selectedIx = answerIx ?? -1);
-    HapticFeedback.lightImpact();
+    HapticsService().lightTap();
 
     try {
       final outcome = await widget.submit(
-        matchId: widget.matchId,
         qIx: _qIx,
         answerIx: answerIx,
       );
@@ -188,10 +151,10 @@ class _QuestionScreenState extends State<QuestionScreen> {
       });
 
       if (answerIx == outcome.correctIx) {
-        HapticFeedback.mediumImpact();
+        HapticsService().success();
         await AudioService().play('correct');
       } else {
-        HapticFeedback.heavyImpact();
+        HapticsService().error();
         await AudioService().play('wrong');
       }
 

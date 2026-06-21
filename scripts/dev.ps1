@@ -4,7 +4,8 @@
 #
 # Usage:
 #   1. In terminal A: .\scripts\dev.ps1          <- starts emulators (blocking)
-#   2. In terminal B: cd app && flutter run --flavor dev -t lib/main_dev.dart
+#   2. In terminal B: .\scripts\seed.ps1         <- seeds questions + dev friends
+#   3. In terminal B: cd app && flutter run --flavor dev -t lib/main_dev.dart
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent

@@ -1,0 +1,8 @@
+# Localization codegen config (Phase 6a). Hebrew is the template (Hebrew-first
+# product); English is the fallback. Run via `flutter gen-l10n` or implicitly on
+# build because pubspec has `flutter: generate: true`.
+arb-dir: lib/l10n
+template-arb-file: app_he.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false

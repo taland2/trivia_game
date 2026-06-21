@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'data/categories.dart';
+import 'l10n/app_localizations.dart';
 import 'theme/tokens.dart';
 import 'theme/category_colors.dart';
 import 'services/audio_service.dart';
+import 'services/haptics_service.dart';
 
 class RoundQuestionResult {
   const RoundQuestionResult({
@@ -15,24 +17,28 @@ class RoundQuestionResult {
   final bool wasCorrect;
 }
 
-// Displays the round summary: total score + per-question breakdown.
+// Displays the round summary: total score + per-question breakdown. After a turn
+// the match flips to the opponent, so the primary action returns Home rather than
+// replaying (which would fail the not-your-turn precondition).
 class RoundResultScreen extends StatelessWidget {
   const RoundResultScreen({
     super.key,
     required this.category,
     required this.results,
-    required this.onPlayAgain,
+    required this.onContinue,
+    required this.continueLabel,
   });
 
   final String category;
   final List<RoundQuestionResult> results;
-  final VoidCallback onPlayAgain;
+  final VoidCallback onContinue;
+  final String continueLabel;
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final totalPoints = results.fold(0, (sum, r) => sum + r.points);
     final correct = results.where((r) => r.wasCorrect).length;
-
     final categoryAccent = CategoryColors.getColor(category);
 
     return Scaffold(
@@ -44,15 +50,15 @@ class RoundResultScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: AppSpacing.md),
-              _buildHeader(correct, totalPoints, categoryAccent),
+              _buildHeader(l, correct, totalPoints, categoryAccent),
               const SizedBox(height: AppSpacing.xl),
-              _buildBreakdown(),
+              _buildBreakdown(l),
               const Spacer(),
               ElevatedButton(
                 onPressed: () {
-                  HapticFeedback.mediumImpact();
+                  HapticsService().success();
                   AudioService().play('whoosh');
-                  onPlayAgain();
+                  onContinue();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
@@ -62,9 +68,9 @@ class RoundResultScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.lg),
                   ),
                 ),
-                child: const Text(
-                  'סבב חדש',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                child: Text(
+                  continueLabel,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -75,27 +81,23 @@ class RoundResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(int correct, int totalPoints, Color categoryAccent) {
-    final categoryLabel = _categoryLabel(category);
+  Widget _buildHeader(
+    AppLocalizations l,
+    int correct,
+    int totalPoints,
+    Color categoryAccent,
+  ) {
     return Column(
       children: [
         Text(
-          'סיום סבב',
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 16,
-            letterSpacing: 1.2,
-          ),
+          l.roundResultTitle,
+          style: const TextStyle(color: Colors.white70, fontSize: 16, letterSpacing: 1.2),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          categoryLabel,
-          style: TextStyle(
-            color: categoryAccent,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
+          Categories.labelFor(l, category),
+          style: TextStyle(color: categoryAccent, fontSize: 20, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -111,7 +113,7 @@ class RoundResultScreen extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'נקודות · $correct/${results.length} נכון',
+          l.roundResultScore(correct, results.length),
           style: const TextStyle(color: Colors.white70, fontSize: 16),
           textAlign: TextAlign.center,
         ),
@@ -119,21 +121,17 @@ class RoundResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBreakdown() {
+  Widget _buildBreakdown(AppLocalizations l) {
     return Column(
       children: results.asMap().entries.map((entry) {
         final i = entry.key;
         final r = entry.value;
-        final diffLabel = _diffLabel(r.difficulty);
         final icon = r.wasCorrect ? '✓' : '✗';
         final iconColor = r.wasCorrect ? Colors.greenAccent : Colors.redAccent;
 
         return Container(
           margin: const EdgeInsets.only(bottom: AppSpacing.md),
-          padding: const EdgeInsets.symmetric(
-            vertical: 14,
-            horizontal: AppSpacing.md,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: AppSpacing.md),
           decoration: BoxDecoration(
             color: Colors.white.withAlpha(26),
             borderRadius: BorderRadius.circular(AppRadius.md),
@@ -142,16 +140,12 @@ class RoundResultScreen extends StatelessWidget {
             children: [
               Text(
                 icon,
-                style: TextStyle(
-                  color: iconColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: iconColor, fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
-                  'שאלה ${i + 1} — $diffLabel',
+                  l.roundResultQuestionLine(i + 1, _diffLabel(l, r.difficulty)),
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ),
@@ -170,22 +164,10 @@ class RoundResultScreen extends StatelessWidget {
     );
   }
 
-  static String _diffLabel(String d) => switch (d) {
-        'easy' => 'קל',
-        'medium' => 'בינוני',
-        'hard' => 'קשה',
+  static String _diffLabel(AppLocalizations l, String d) => switch (d) {
+        'easy' => l.difficultyEasy,
+        'medium' => l.difficultyMedium,
+        'hard' => l.difficultyHard,
         _ => d,
-      };
-
-  static String _categoryLabel(String c) => switch (c) {
-        'general_knowledge' => 'ידע כללי',
-        'sports' => 'ספורט',
-        'movies_tv' => 'קולנוע וטלוויזיה',
-        'music' => 'מוזיקה',
-        'science_tech' => 'מדע וטכנולוגיה',
-        'history' => 'היסטוריה',
-        'geography' => 'גיאוגרפיה',
-        'israel_local' => 'ישראל ומקומי',
-        _ => c,
       };
 }

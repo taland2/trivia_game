@@ -38,7 +38,6 @@ class _FakeSubmit {
   int? lastAnswerIx;
 
   Future<AnswerOutcome> call({
-    required String matchId,
     required int qIx,
     required int? answerIx,
   }) async {
@@ -71,7 +70,6 @@ Future<void> _pumpQuestion(
         home: Scaffold(
           backgroundColor: const Color(0xFF6C63FF),
           body: QuestionScreen(
-            matchId: 'm1',
             serving: _serving,
             questionNumber: 1,
             totalQuestions: 3,
