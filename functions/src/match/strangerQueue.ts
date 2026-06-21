@@ -9,8 +9,9 @@ import {
 import { FUNCTIONS_REGION } from "../config/region.js";
 import { isStrangerQueueEnabled } from "../config/flags.js";
 import { loadUserQueueProfile } from "../user/profile.js";
+import { idempRef, readIdempotent, writeIdempotent } from "../lib/idempotency.js";
 import { buildDuelMatch } from "./createDuel.js";
-import { matchListEntryFor, matchListPath } from "./matchList.js";
+import { writeMatchTx } from "./matchList.js";
 import type { MatchDoc } from "./types.js";
 
 // Stranger queue (GDD §4.8). Flag-gated OFF until soft launch. A paired match
@@ -65,14 +66,20 @@ export const v1_joinStrangerQueue = onCall(
         field: parsed.error.issues[0]?.path.join(".") ?? "unknown",
       });
     }
-    const { categoryMode } = parsed.data;
+    const { categoryMode, idempotencyKey } = parsed.data;
 
     const db = getFirestore();
 
-    // Flag off ⇒ no-op (no queue write). The client steers to the daily challenge.
+    // Flag off ⇒ no-op (no queue write, no state). The client steers to the
+    // daily challenge. A pure no-op needs no idempotency record.
     if (!(await isStrangerQueueEnabled(db))) {
       return { queued: false };
     }
+
+    // Replay guard (H2). The pairing branch checks the record in-transaction, so
+    // a double-tap creates at most one match; the enqueue branch re-stores the
+    // same record (the queue `set` is itself idempotent), so replays are no-ops.
+    const iref = idempRef(db, uid, idempotencyKey);
 
     const profile = await loadUserQueueProfile(db, uid);
     if (profile === null) {
@@ -95,15 +102,24 @@ export const v1_joinStrangerQueue = onCall(
     const now = Timestamp.now();
     const myQueueRef = db.doc(queuePath(uid));
 
-    if (candidateUid === null) {
-      // Nobody waiting — enqueue self.
-      await myQueueRef.set({
+    // Enqueue self + record the idempotent result in one batch.
+    const enqueueSelf = async (): Promise<JoinStrangerQueueResponse> => {
+      const res: JoinStrangerQueueResponse = { queued: true };
+      const batch = db.batch();
+      batch.set(myQueueRef, {
         language: profile.language,
         level: profile.level,
         categoryMode,
         enqueuedAt: now,
       } satisfies QueueEntry);
-      return { queued: true };
+      batch.set(iref, { result: res, createdAt: now });
+      await batch.commit();
+      return res;
+    };
+
+    if (candidateUid === null) {
+      // Nobody waiting — enqueue self.
+      return enqueueSelf();
     }
 
     // Try to pair. The transaction serializes on the candidate's queue doc: two
@@ -112,8 +128,11 @@ export const v1_joinStrangerQueue = onCall(
     const candidateRef = db.doc(queuePath(candidateUid));
     const matchId = db.collection("matches").doc().id;
     const paired = await db.runTransaction(async (tx) => {
+      const cached = await readIdempotent<JoinStrangerQueueResponse>(tx, iref);
+      if (cached !== null) return cached;
+
       const candSnap = await tx.get(candidateRef);
-      if (!candSnap.exists) return false; // taken by another joiner — fall through
+      if (!candSnap.exists) return null; // taken by another joiner — fall through
 
       // Stranger match always runs Spinner (product decision Phase 4b); the
       // waiting player is the challenger (takes the first turn).
@@ -127,26 +146,16 @@ export const v1_joinStrangerQueue = onCall(
       });
 
       tx.delete(candidateRef);
-      tx.set(db.doc(`matches/${matchId}`), match);
-      for (const p of match.players) {
-        tx.set(
-          db.doc(matchListPath(p, matchId)),
-          matchListEntryFor(matchId, match, p, now),
-        );
-      }
-      return true;
+      writeMatchTx(tx, db, matchId, match, now);
+      const res: JoinStrangerQueueResponse = { queued: true, matchId };
+      writeIdempotent(tx, iref, res, now);
+      return res;
     });
 
-    if (paired) return { queued: true, matchId };
+    if (paired !== null) return paired;
 
     // The candidate was claimed mid-flight — enqueue self instead.
-    await myQueueRef.set({
-      language: profile.language,
-      level: profile.level,
-      categoryMode,
-      enqueuedAt: now,
-    } satisfies QueueEntry);
-    return { queued: true };
+    return enqueueSelf();
   },
 );
 

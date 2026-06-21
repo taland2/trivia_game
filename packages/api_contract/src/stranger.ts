@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CategoryModeSchema } from "./common.js";
+import { CategoryModeSchema, IdempotencyKeySchema } from "./common.js";
 
 // Stranger-queue callable contracts (GDD §4.8, doc 07). Built in MVP but Remote
 // Config-gated OFF until soft launch (Gate E) — a small beta has no queue
@@ -10,7 +10,10 @@ import { CategoryModeSchema } from "./common.js";
 // stranger match always runs Spinner (product decision Phase 4b) since the two
 // players may have asked for different modes.
 export const JoinStrangerQueueRequestSchema = z
-  .object({ categoryMode: CategoryModeSchema })
+  .object({
+    categoryMode: CategoryModeSchema,
+    idempotencyKey: IdempotencyKeySchema,
+  })
   .strict();
 export type JoinStrangerQueueRequest = z.infer<
   typeof JoinStrangerQueueRequestSchema

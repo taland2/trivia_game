@@ -11,6 +11,7 @@ import {
 import { getBalance } from "../config/balance.js";
 import { FUNCTIONS_REGION } from "../config/region.js";
 import { scoreAnswer } from "./scoring.js";
+import { idempRef, readIdempotent, writeIdempotent } from "../lib/idempotency.js";
 import { servingKey } from "../serve/roundServing.js";
 import { resolveRoundWinner, resolveMatchWinner } from "./resolveRound.js";
 import { matchListEntryFor, matchListPath } from "./matchList.js";
@@ -103,15 +104,15 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
   const correct = answerIx === correctIx && !timedOut;
   const lastQ = qIx === balance.match.roundComposition.length - 1;
 
-  const idempRef = db.doc(`idempotency/${uid}_${idempotencyKey}`);
+  const iref = idempRef(db, uid, idempotencyKey);
   const matchRef = db.doc(`matches/${matchId}`);
 
   // Everything that mutates match state runs in one transaction so two last
   // answers landing together resolve the round exactly once (doc 12 race test).
   const result = await db.runTransaction(async (tx) => {
-    const idempSnap = await tx.get(idempRef);
-    if (idempSnap.exists) {
-      return idempSnap.data()!["result"];
+    const cached = await readIdempotent(tx, iref);
+    if (cached !== null) {
+      return cached;
     }
 
     const matchSnap = await tx.get(matchRef);
@@ -169,6 +170,15 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
     if (me.done || me.answers.some((a) => a.qIx === qIx)) {
       throw new HttpsError("failed-precondition", "Already answered", {
         reason: "already-answered",
+      });
+    }
+    // Sequential answering (GDD §11): a round can't be finished while skipping a
+    // question. `lastQ` (qIx=2) is reachable only after 0,1,2 are all recorded,
+    // so the recap always has exactly 3 answers. A legit retry never trips this —
+    // the idempotency check above returns the cached result first.
+    if (qIx !== me.answers.length) {
+      throw new HttpsError("failed-precondition", "Answer questions in order", {
+        reason: "out-of-order",
       });
     }
 
@@ -322,7 +332,7 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
       }
     }
 
-    tx.set(idempRef, { result: res, createdAt: now });
+    writeIdempotent(tx, iref, res, now);
     return res;
   });
 

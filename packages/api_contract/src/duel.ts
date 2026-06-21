@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { CategoryModeSchema, CategorySchema, DifficultySchema } from "./common.js";
+import {
+  CategoryModeSchema,
+  CategorySchema,
+  DifficultySchema,
+  IdempotencyKeySchema,
+} from "./common.js";
 import { ServingSchema } from "./serving.js";
 
 // Duel lifecycle callable contracts (doc 07 §2.2). All integrity writes happen
@@ -13,6 +18,7 @@ export const CreateDuelRequestSchema = z
   .object({
     opponentUid: z.string().min(1),
     categoryMode: CategoryModeSchema,
+    idempotencyKey: IdempotencyKeySchema,
   })
   .strict();
 export type CreateDuelRequest = z.infer<typeof CreateDuelRequestSchema>;
@@ -24,7 +30,10 @@ export type CreateDuelResponse = z.infer<typeof CreateDuelResponseSchema>;
 
 // --- v1_acceptRematch --------------------------------------------------------
 export const AcceptRematchRequestSchema = z
-  .object({ matchId: z.string().min(1) })
+  .object({
+    matchId: z.string().min(1),
+    idempotencyKey: IdempotencyKeySchema,
+  })
   .strict();
 export type AcceptRematchRequest = z.infer<typeof AcceptRematchRequestSchema>;
 

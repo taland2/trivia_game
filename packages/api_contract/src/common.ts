@@ -36,6 +36,7 @@ export const ErrorReasonSchema = z.enum([
   "daily-already-played",
   "language-mismatch",
   "day-out-of-window",
+  "out-of-order",
   // resource-exhausted
   "max-active-duels",
   "max-duels-with-friend",

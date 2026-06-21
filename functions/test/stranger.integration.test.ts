@@ -103,7 +103,7 @@ afterAll(async () => {
 describe("stranger queue flag off (default)", () => {
   it("is a no-op when the flag is disabled", async () => {
     await setFlag(false);
-    const res = await call(A, "v1_joinStrangerQueue", { categoryMode: "spin" });
+    const res = await call(A, "v1_joinStrangerQueue", { categoryMode: "spin", idempotencyKey: crypto.randomUUID() });
     expect(res).toEqual({ queued: false });
     expect((await adminDb.doc(`strangerQueue/${A.uid}`).get()).exists).toBe(false);
   });
@@ -113,11 +113,11 @@ describe("stranger queue flag on", () => {
   beforeEach(async () => { await setFlag(true); });
 
   it("enqueues the first player, then pairs the second into a stranger match", async () => {
-    const r1 = await call(A, "v1_joinStrangerQueue", { categoryMode: "spin" });
+    const r1 = await call(A, "v1_joinStrangerQueue", { categoryMode: "spin", idempotencyKey: crypto.randomUUID() });
     expect(r1).toEqual({ queued: true });
     expect((await adminDb.doc(`strangerQueue/${A.uid}`).get()).exists).toBe(true);
 
-    const r2 = await call(B, "v1_joinStrangerQueue", { categoryMode: "auto" });
+    const r2 = await call(B, "v1_joinStrangerQueue", { categoryMode: "auto", idempotencyKey: crypto.randomUUID() });
     expect(r2.queued).toBe(true);
     expect(r2.matchId).toBeTruthy();
 
@@ -136,8 +136,8 @@ describe("stranger queue flag on", () => {
   });
 
   it("does not pair players in different languages", async () => {
-    await call(A, "v1_joinStrangerQueue", { categoryMode: "spin" }); // he, waiting
-    const r = await call(C, "v1_joinStrangerQueue", { categoryMode: "spin" }); // en
+    await call(A, "v1_joinStrangerQueue", { categoryMode: "spin", idempotencyKey: crypto.randomUUID() }); // he, waiting
+    const r = await call(C, "v1_joinStrangerQueue", { categoryMode: "spin", idempotencyKey: crypto.randomUUID() }); // en
     expect(r).toEqual({ queued: true }); // enqueued, not paired
     expect("matchId" in r).toBe(false);
     expect((await adminDb.doc(`strangerQueue/${C.uid}`).get()).exists).toBe(true);
@@ -145,13 +145,13 @@ describe("stranger queue flag on", () => {
   });
 
   it("pairs exactly once when two players race onto one waiter", async () => {
-    await call(A, "v1_joinStrangerQueue", { categoryMode: "spin" }); // A waits
+    await call(A, "v1_joinStrangerQueue", { categoryMode: "spin", idempotencyKey: crypto.randomUUID() }); // A waits
 
     const D = await makeClient("stD");
     await setProfile(D, "he", 6);
     const [rB, rD] = await Promise.allSettled([
-      call(B, "v1_joinStrangerQueue", { categoryMode: "spin" }),
-      call(D, "v1_joinStrangerQueue", { categoryMode: "spin" }),
+      call(B, "v1_joinStrangerQueue", { categoryMode: "spin", idempotencyKey: crypto.randomUUID() }),
+      call(D, "v1_joinStrangerQueue", { categoryMode: "spin", idempotencyKey: crypto.randomUUID() }),
     ]);
 
     const results = [rB, rD]
@@ -169,7 +169,7 @@ describe("stranger queue flag on", () => {
   });
 
   it("leaves the queue idempotently", async () => {
-    await call(A, "v1_joinStrangerQueue", { categoryMode: "spin" });
+    await call(A, "v1_joinStrangerQueue", { categoryMode: "spin", idempotencyKey: crypto.randomUUID() });
     expect(await call(A, "v1_leaveStrangerQueue", {})).toEqual({ left: true });
     expect((await adminDb.doc(`strangerQueue/${A.uid}`).get()).exists).toBe(false);
     // Second leave on an empty queue still succeeds.

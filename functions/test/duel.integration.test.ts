@@ -135,6 +135,7 @@ async function newDuel(
   const { matchId } = await call(A, "v1_createDuel", {
     opponentUid: B.uid,
     categoryMode,
+    idempotencyKey: crypto.randomUUID(),
   });
   return matchId;
 }
@@ -339,7 +340,10 @@ describe("duel lifecycle", () => {
     const matchId = await newDuel();
     await playToCompletionAWins(matchId);
 
-    const { newMatchId } = await call(B, "v1_acceptRematch", { matchId });
+    const { newMatchId } = await call(B, "v1_acceptRematch", {
+      matchId,
+      idempotencyKey: crypto.randomUUID(),
+    });
     const nm = (await adminDb.doc(`matches/${newMatchId}`).get()).data()!;
     expect(nm["players"][0]).toBe(B.uid); // roles swapped (GDD §4.6)
     expect(nm["players"][1]).toBe(A.uid);
@@ -406,7 +410,11 @@ describe("same-language rule (GDD §4.7)", () => {
     const C = await makeClient("itC");
     await setProfile(C, "en");
     await expect(
-      call(A, "v1_createDuel", { opponentUid: C.uid, categoryMode: "spin" }),
+      call(A, "v1_createDuel", {
+        opponentUid: C.uid,
+        categoryMode: "spin",
+        idempotencyKey: crypto.randomUUID(),
+      }),
     ).rejects.toMatchObject({
       code: "functions/failed-precondition",
       details: { reason: "language-mismatch" },
@@ -418,6 +426,7 @@ describe("same-language rule (GDD §4.7)", () => {
       call(A, "v1_createDuel", {
         opponentUid: "ghost_no_profile",
         categoryMode: "spin",
+        idempotencyKey: crypto.randomUUID(),
       }),
     ).rejects.toMatchObject({
       code: "functions/not-found",
@@ -451,12 +460,14 @@ describe("concurrency caps (GDD §4.6)", () => {
       await call(A, "v1_createDuel", {
         opponentUid: `cap_opp_${i}`,
         categoryMode: "spin",
+        idempotencyKey: crypto.randomUUID(),
       });
     }
     await expect(
       call(A, "v1_createDuel", {
         opponentUid: "cap_opp_20",
         categoryMode: "spin",
+        idempotencyKey: crypto.randomUUID(),
       }),
     ).rejects.toMatchObject({
       code: "functions/resource-exhausted",
@@ -505,5 +516,213 @@ describe("tie resolution (GDD §4.5)", () => {
       .doc(`servingsPrivate/${matchId}_0_0_${A.uid}_r1`)
       .get();
     expect(r1.exists).toBe(true);
+  });
+});
+
+// WS1 remediation (docs/17): the H1 scoring-integrity guard, the create-side
+// idempotency + cap-race fixes (H2/M1/M2), and the e2e late-submit path.
+describe("WS1 — integrity & idempotency", () => {
+  // H1 (GDD §11): a round can't be finished while skipping a question. Submitting
+  // qIx=2 before qIx=1 must be rejected — defeating the kill-app-to-skip-the-hard-
+  // question exploit and guaranteeing the recap always has 3 answers.
+  it("rejects finishing a round while skipping a question (H1)", async () => {
+    const matchId = await newDuel("spin");
+    const start = await call(A, "v1_startRound", { matchId });
+    const roundIx = start.roundIx as number;
+
+    const cix0 = await correctIxFor(matchId, roundIx, 0, A.uid);
+    await call(A, "v1_submitAnswer", {
+      matchId,
+      roundIx,
+      qIx: 0,
+      answerIx: cix0,
+      idempotencyKey: crypto.randomUUID(),
+    });
+
+    // Jump to the last (Hard) question, skipping qIx=1 → out-of-order.
+    const cix2 = await correctIxFor(matchId, roundIx, 2, A.uid);
+    await expect(
+      call(A, "v1_submitAnswer", {
+        matchId,
+        roundIx,
+        qIx: 2,
+        answerIx: cix2,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({
+      code: "functions/failed-precondition",
+      details: { reason: "out-of-order" },
+    });
+
+    // The round is not done for A and no recap leaked.
+    const round = (
+      await adminDb.doc(`matches/${matchId}/rounds/${roundIx}`).get()
+    ).data()!;
+    expect(round["perPlayer"][A.uid]?.done ?? false).toBe(false);
+    expect(round["perPlayer"][A.uid]?.answers).toHaveLength(1);
+    expect(
+      (await adminDb.doc(`matches/${matchId}/recaps/${roundIx}`).get()).exists,
+    ).toBe(false);
+  });
+
+  // Adversarial (docs/12): a submit for a round that was never served is rejected.
+  it("rejects a submit for a never-served (stale) roundIx", async () => {
+    const matchId = await newDuel("spin");
+    await call(A, "v1_startRound", { matchId }); // serves round 0 only
+    await expect(
+      call(A, "v1_submitAnswer", {
+        matchId,
+        roundIx: 4,
+        qIx: 0,
+        answerIx: 0,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({
+      code: "functions/not-found",
+      details: { reason: "match" },
+    });
+  });
+
+  // Guardrail 3 e2e: a correct answer submitted after the server clock passes the
+  // limit scores 0 — proven through the real submitAnswer, not just the scorer.
+  it("scores a correct answer as timed-out past the server limit", async () => {
+    const matchId = await newDuel("spin");
+    const start = await call(A, "v1_startRound", { matchId });
+    const roundIx = start.roundIx as number;
+
+    // Backdate the immutable scoring clock far beyond any timeLimit + grace.
+    await adminDb
+      .doc(`servingsPrivate/${matchId}_${roundIx}_0_${A.uid}`)
+      .update({ servedAt: new Date(Date.now() - 10 * 60 * 1000) });
+
+    const cix0 = await correctIxFor(matchId, roundIx, 0, A.uid);
+    const res = await call(A, "v1_submitAnswer", {
+      matchId,
+      roundIx,
+      qIx: 0,
+      answerIx: cix0, // the correct index — still 0 points because timed out
+      idempotencyKey: crypto.randomUUID(),
+    });
+    expect(res.points).toBe(0);
+  });
+
+  // H2: a same-key createDuel retry storm creates exactly one match.
+  it("createDuel is idempotent under a same-key retry storm (H2)", async () => {
+    const key = crypto.randomUUID();
+    const fire = () =>
+      call(A, "v1_createDuel", {
+        opponentUid: B.uid,
+        categoryMode: "spin",
+        idempotencyKey: key,
+      });
+
+    const before = (await adminDb.collection("matches").get()).size;
+    const [r1, r2] = await Promise.all([fire(), fire()]);
+    const after = (await adminDb.collection("matches").get()).size;
+
+    expect(r1.matchId).toBe(r2.matchId); // both calls see the same match
+    expect(after - before).toBe(1); // and only one was created
+  });
+
+  // M1: the cap check is transactional — two concurrent creates at the boundary
+  // can't both pass.
+  it("enforces the active-duel cap under a concurrent create race (M1)", async () => {
+    const cap = 20; // GDD §4.6 maxActiveDuels (balance default)
+
+    // Seed A to cap-1 active duels and two distinct he opponents to challenge.
+    const batch = adminDb.batch();
+    for (let i = 0; i < cap - 1; i++) {
+      batch.set(adminDb.doc(`users/${A.uid}/matchList/race_${i}`), {
+        matchId: `race_${i}`,
+        opponentUid: `race_opp_${i}`,
+        state: "active",
+        yourTurn: true,
+        roundWins: {},
+        currentRound: 0,
+        categoryMode: "spin",
+        result: null,
+        lastEventAt: new Date(),
+      });
+    }
+    for (const id of ["race_a", "race_b"]) {
+      batch.set(adminDb.doc(`users/${id}`), { language: "he", isGuest: true });
+    }
+    await batch.commit();
+
+    const [ra, rb] = await Promise.allSettled([
+      call(A, "v1_createDuel", {
+        opponentUid: "race_a",
+        categoryMode: "spin",
+        idempotencyKey: crypto.randomUUID(),
+      }),
+      call(A, "v1_createDuel", {
+        opponentUid: "race_b",
+        categoryMode: "spin",
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ]);
+
+    const fulfilled = [ra, rb].filter((r) => r.status === "fulfilled");
+    const rejected = [ra, rb].filter((r) => r.status === "rejected");
+    expect(fulfilled).toHaveLength(1); // exactly one reached the cap
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({
+      code: "functions/resource-exhausted",
+      details: { reason: "max-active-duels" },
+    });
+  });
+
+  // M2: a rematch is a new active match, so it honours the §4.6 caps.
+  it("acceptRematch enforces the active-duel cap (M2)", async () => {
+    const matchId = await newDuel("spin");
+    await playToCompletionAWins(matchId); // a finished A↔B match to rematch
+
+    const cap = 20; // GDD §4.6 maxActiveDuels (balance default)
+    const batch = adminDb.batch();
+    for (let i = 0; i < cap; i++) {
+      batch.set(adminDb.doc(`users/${A.uid}/matchList/rcap_${i}`), {
+        matchId: `rcap_${i}`,
+        opponentUid: `rcap_opp_${i}`,
+        state: "active",
+        yourTurn: true,
+        roundWins: {},
+        currentRound: 0,
+        categoryMode: "spin",
+        result: null,
+        lastEventAt: new Date(),
+      });
+    }
+    await batch.commit();
+
+    await expect(
+      call(A, "v1_acceptRematch", {
+        matchId,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({
+      code: "functions/resource-exhausted",
+      details: { reason: "max-active-duels" },
+    });
+  });
+
+  // M2: a rematch re-checks the same-language rule against current profiles.
+  it("acceptRematch rejects when players no longer share a language (M2)", async () => {
+    const matchId = await newDuel("spin");
+    await playToCompletionAWins(matchId);
+
+    // B switches app language after the match. Done via admin (merge) because B
+    // has earned XP by now, so a client full-overwrite would (correctly) be
+    // denied by the profile-whitelist rules — this is test scaffolding only.
+    await adminDb.doc(`users/${B.uid}`).set({ language: "en" }, { merge: true });
+    await expect(
+      call(A, "v1_acceptRematch", {
+        matchId,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({
+      code: "functions/failed-precondition",
+      details: { reason: "language-mismatch" },
+    });
+    await adminDb.doc(`users/${B.uid}`).set({ language: "he" }, { merge: true }); // restore
   });
 });

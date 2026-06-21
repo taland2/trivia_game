@@ -87,7 +87,9 @@ async function playRound(c: Client, matchId: string, correctly: boolean): Promis
 
 async function newDuel(): Promise<string> {
   const { matchId } = await call(A, "v1_createDuel", {
-    opponentUid: B.uid, categoryMode: "spin",
+    opponentUid: B.uid,
+    categoryMode: "spin",
+    idempotencyKey: crypto.randomUUID(),
   });
   return matchId;
 }

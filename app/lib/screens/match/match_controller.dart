@@ -74,6 +74,7 @@ class FirebaseMatchApi implements MatchApi {
     final res = await _functions.httpsCallable('v1_createDuel').call<Map>({
       'opponentUid': opponentUid,
       'categoryMode': mode.wire,
+      'idempotencyKey': genUuid(),
     });
     return res.data['matchId'] as String;
   }
