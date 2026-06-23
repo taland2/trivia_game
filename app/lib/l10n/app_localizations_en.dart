@@ -192,4 +192,94 @@ class AppLocalizationsEn extends AppLocalizations {
   String matchVsOpponent(String opponent) {
     return 'vs $opponent';
   }
+
+  @override
+  String get recapTitle => 'Round recap';
+
+  @override
+  String get recapYouWonRound => 'You won this round!';
+
+  @override
+  String get recapOpponentWonRound => 'Your opponent took this round';
+
+  @override
+  String get recapYou => 'You';
+
+  @override
+  String get recapOpponent => 'Opponent';
+
+  @override
+  String get matchResultWin => 'You won!';
+
+  @override
+  String get matchResultLoss => 'You lost';
+
+  @override
+  String matchResultWeeklyPoints(int points) {
+    return '+$points weekly points';
+  }
+
+  @override
+  String get matchResultRematch => 'Rematch';
+
+  @override
+  String get matchResultShare => 'Share';
+
+  @override
+  String get matchResultShareCopied => 'Result copied';
+
+  @override
+  String matchResultShareText(int you, int them) {
+    return 'I scored $you–$them in Trivia!';
+  }
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsFeedback => 'Sound & haptics';
+
+  @override
+  String get settingsSound => 'Sound effects';
+
+  @override
+  String get settingsHaptics => 'Haptics';
+
+  @override
+  String get profileMatchHistory => 'Match history';
+
+  @override
+  String profileLevelXp(int level, int xp) {
+    return 'Level $level · $xp XP';
+  }
+
+  @override
+  String get emoteLimitReached => 'You\'ve used all your emotes this match';
+
+  @override
+  String get emoteLaugh => 'Haha';
+
+  @override
+  String get emoteFire => 'On fire';
+
+  @override
+  String get emoteRevenge => 'Revenge!';
+
+  @override
+  String get emoteLucky => 'Lucky';
+
+  @override
+  String get emoteWow => 'Wow';
+
+  @override
+  String get emoteClap => 'Nice';
+
+  @override
+  String get emoteGg => 'Good game';
+
+  @override
+  String get emoteThink => 'Hmm';
 }

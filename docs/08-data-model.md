@@ -45,7 +45,10 @@ config/* (via Remote Config, not Firestore)
   "avatarId": 7,                // client-writable (enum 1..24)
   "language": "he",
   "isGuest": false,
-  "xp": 4350, "level": 12,      // function-written
+  "xp": 4350, "level": 12,      // function-written (GDD §8)
+  "levelFloorXp": 4099, "levelCeilXp": 4561,  // function-written: current level's XP
+                                              // bounds, so the client draws the level
+                                              // bar WITHOUT the ⚖️ curve (guardrail #4)
   "streak": {"count": 6, "lastDayId": "2026-06-12"},   // function-written
   "stats": {"matches": 88, "wins": 47, "dailyPlayed": 60,
             "perCategory": {"sports": {"answered": 210, "correct": 144}, ...}},
@@ -63,6 +66,9 @@ config/* (via Remote Config, not Firestore)
   "players": ["uidA", "uidB"],           // immutable
   "state": "active",                     // pending|active|finished|forfeited|cancelled
   "roundWins": {"uidA": 2, "uidB": 1},
+  "scoreTotals": {"uidA": 824, "uidB": 391},  // per-player sum of WINNING-round
+                                              // scores (GDD §7 weekly "match score");
+                                              // function-written, immutable to clients
   "currentRound": 3,
   "turnUid": "uidB",
   "turnDeadline": <ts>,                  // 36h forfeit sweep target (GDD §4.4)
@@ -112,6 +118,20 @@ doc's "separate doc wherever a hidden field is tempting" principle (above) appli
 opponent's answers. (The earlier draft proposed a `revealReady` map + a `recap` field on the
 round doc; that was unenforceable in rules and is superseded by this split.)
 
+### `matches/{matchId}/emotes/{emoteId}` — **participant-readable banter (GDD §10.2)**
+```jsonc
+{
+  "senderUid": "uidA",
+  "emote": "fire",        // one of the predefined emote KEYS (⚖️ balance `emotes.set`);
+                          // the client maps each key to an emoji + localized label
+  "sentAt": <ts>
+}
+```
+Function-written only (via `v1_sendEmote`, Phase 6b): the callable validates the key
+against the allowed set and enforces the per-sender per-match cap (⚖️ `emotes.perMatch`,
+default 3). No free text ever reaches storage (guardrail #1; doc 09 safety surface). Rules
+expose the subcollection to the two participants for read; client writes are denied.
+
 ### `users/{uid}/servings/{servingId}`
 ```jsonc
 {
@@ -125,8 +145,23 @@ round doc; that was unenforceable in rules and is superseded by this split.)
 }
 ```
 > ⚠️ Design note: Firestore rules can't hide single fields. Anything the client must not
-> see lives in a **separate doc** (`servingsPrivate/{servingId}`: `{questionId, correctIx}`),
-> function-readable only. This split is mandatory wherever a "hidden field" is tempting.
+> see lives in a **separate doc**, function-readable only. This split is mandatory wherever
+> a "hidden field" is tempting.
+>
+> **Implementation reality (Phase 3+):** duel servings are delivered in the callable
+> response, not via `users/{uid}/servings`; the only persisted serving doc is a single
+> top-level `servingsPrivate/{servingId}` (rules deny all client access). Its real fields:
+> `{correctIx, questionId, servedAt, answeredAt, uid, matchId, roundIx, qIx, difficulty,
+> timeLimitMs, serving}` — where `serving` is the exact public payload (so an idempotent
+> `startRound` replay returns the identical shuffle without resetting the scoring clock).
+> `servingId` = `${matchId}_${roundIx}_${qIx}_${uid}` (+`_r{n}` for a GDD §4.5 tie replay).
+
+### `idempotency/{uid}_{key}` — **function-only mutating-callable guard (doc 07 §1)**
+Every mutating callable (`v1_createDuel`, `v1_acceptRematch`, `v1_submitAnswer`,
+`v1_sendEmote`, `v1_joinStrangerQueue`) stores its result here under the caller's UUID key;
+a replay (retry / double-tap) returns the stored result instead of mutating again. Shape:
+`{result, createdAt}`. A 24h `expiresAt` + Firestore TTL policy is tracked for pre-beta
+(WS5) so the collection stays bounded.
 
 ### `questions/{questionId}` — schema per doc 03 §6 (bank; no client access).
 Operational additions: `servedCount`, `correctCount`, `medianMs`, `lastServedAt`,

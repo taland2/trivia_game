@@ -11,6 +11,9 @@ abstract class Routes {
   static const friendPicker = 'pick'; // -> /play/pick
   static const categoryMode = 'mode'; // -> /play/mode
 
+  // Profile sub-route (push within the Profile tab; tab bar stays).
+  static const settings = 'settings'; // -> /profile/settings
+
   // Full-screen match route on the root navigator.
   static String match(String matchId) => '/match/$matchId';
   static const matchPattern = '/match/:matchId';
@@ -22,5 +25,6 @@ abstract class Routes {
   static const nameProfile = 'profile';
   static const nameFriendPicker = 'friendPicker';
   static const nameCategoryMode = 'categoryMode';
+  static const nameSettings = 'settings';
   static const nameMatch = 'match';
 }

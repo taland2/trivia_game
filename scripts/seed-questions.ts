@@ -34,6 +34,7 @@ async function main(): Promise<void> {
     batch.set(db.collection("questions").doc(docId), {
       ...q,
       source: "dev-seed",
+      quarantined: false,
       createdAt: new Date().toISOString(),
     });
     count++;

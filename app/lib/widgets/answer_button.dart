@@ -27,9 +27,19 @@ class _AnswerButtonState extends State<AnswerButton> {
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
 
-    return GestureDetector(
-      onTap: widget.state == AnswerButtonState.idle ? widget.onTap : null,
-      child: _buildButton(reduceMotion),
+    // a11y (doc 04 §8 / M6): expose the button role + selected/checked state so a
+    // screen reader announces the answer and its reveal state, not a bare tap area.
+    return Semantics(
+      button: true,
+      enabled: widget.state == AnswerButtonState.idle,
+      selected: widget.state == AnswerButtonState.locked ||
+          widget.state == AnswerButtonState.correct ||
+          widget.state == AnswerButtonState.wrong,
+      label: widget.text,
+      child: GestureDetector(
+        onTap: widget.state == AnswerButtonState.idle ? widget.onTap : null,
+        child: _buildButton(reduceMotion),
+      ),
     );
   }
 

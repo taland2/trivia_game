@@ -32,6 +32,15 @@ service cloud.firestore {
           get(/databases/$(database)/documents/matches/$(matchId)).data.players
         );
       }
+
+      // Emotes (GDD §10.2) — participant-readable banter. Writes are FUNCTION-ONLY
+      // (v1_sendEmote validates the set + enforces the per-match cap, guardrail #1);
+      // a client-direct write would bypass both, so deny it.
+      match /emotes/{emoteId} {
+        allow read: if isParticipant(
+          get(/databases/$(database)/documents/matches/$(matchId)).data.players
+        );
+      }
     }
 
     // Player profile (doc 08 §2). Owner-readable (Phase 8 widens reads to friends).

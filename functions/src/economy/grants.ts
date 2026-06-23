@@ -50,15 +50,29 @@ export function levelForXp(xp: number, b: Balance): number {
   return Math.max(1, n);
 }
 
-// New {xp, level} after adding deltaXp to a player's current total. Pure — the
-// caller writes it (tx.set(userRef, ..., {merge:true})).
+// Total XP required to REACH level n (GDD §8). Level 1 starts at 0.
+export function xpToReach(level: number, b: Balance): number {
+  if (level <= 1) return 0;
+  return Math.round(b.levelCurve.base * level ** b.levelCurve.exponent);
+}
+
+// New user-doc XP fields after adding deltaXp. Includes the current level's XP
+// boundaries so the client can draw an accurate level bar WITHOUT knowing the
+// ⚖️ level curve (guardrail #4 — the curve stays server-side / Remote Config).
+// Pure — the caller writes it (tx.set(userRef, ..., {merge:true})).
 export function nextUserXp(
   currentXp: number,
   deltaXp: number,
   b: Balance,
-): { xp: number; level: number } {
+): { xp: number; level: number; levelFloorXp: number; levelCeilXp: number } {
   const xp = currentXp + deltaXp;
-  return { xp, level: levelForXp(xp, b) };
+  const level = levelForXp(xp, b);
+  return {
+    xp,
+    level,
+    levelFloorXp: xpToReach(level, b),
+    levelCeilXp: xpToReach(level + 1, b),
+  };
 }
 
 // --- Firestore paths + appliers ------------------------------------------------

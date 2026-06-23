@@ -23,7 +23,10 @@ import {
   deleteApp as adminDeleteApp,
   type App as AdminApp,
 } from "firebase-admin/app";
-import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
+import {
+  getFirestore as getAdminFirestore,
+  Timestamp as AdminTimestamp,
+} from "firebase-admin/firestore";
 import { initializeApp as initClient, deleteApp as deleteClient } from "firebase/app";
 import {
   getAuth,
@@ -724,5 +727,142 @@ describe("WS1 — integrity & idempotency", () => {
       details: { reason: "language-mismatch" },
     });
     await adminDb.doc(`users/${B.uid}`).set({ language: "he" }, { merge: true }); // restore
+  });
+});
+
+// --- H6: the submit response carries the real points split (WS2.2) ------------
+describe("points split (H6)", () => {
+  it("returns basePoints + speedBonus === points for a correct answer", async () => {
+    const matchId = await newDuel("spin");
+    const start = await call(A, "v1_startRound", { matchId });
+    const roundIx = start.roundIx as number;
+    const q0 = (start.servings as Array<{ qIx: number; difficulty: string }>)[0]!;
+    const correctIx = await correctIxFor(matchId, roundIx, q0.qIx, A.uid);
+
+    const res = await call(A, "v1_submitAnswer", {
+      matchId,
+      roundIx,
+      qIx: q0.qIx,
+      answerIx: correctIx,
+      idempotencyKey: crypto.randomUUID(),
+    });
+
+    expect(res.points).toBeGreaterThan(0);
+    expect(res.basePoints).toBe(100); // easy base (serve order is 1E/1M/1H)
+    expect(res.basePoints + res.speedBonus).toBe(res.points);
+  });
+});
+
+// --- WS1.3: a correct answer submitted after the window scores 0 (timed out) --
+describe("submit after timeout (WS1.3)", () => {
+  it("scores 0 for a CORRECT answer arriving past timeLimit + grace", async () => {
+    const matchId = await newDuel("spin");
+    const start = await call(A, "v1_startRound", { matchId });
+    const roundIx = start.roundIx as number;
+    const q0 = (start.servings as Array<{ qIx: number }>)[0]!;
+    const correctIx = await correctIxFor(matchId, roundIx, q0.qIx, A.uid);
+
+    // Backdate the serving clock far past the (easy) 10s limit + 1.5s grace so the
+    // server-authoritative timer marks it timed out — admin scaffolding only.
+    await adminDb
+      .doc(`servingsPrivate/${matchId}_${roundIx}_${q0.qIx}_${A.uid}`)
+      .update({ servedAt: AdminTimestamp.fromMillis(Date.now() - 60_000) });
+
+    const res = await call(A, "v1_submitAnswer", {
+      matchId,
+      roundIx,
+      qIx: q0.qIx,
+      answerIx: correctIx, // the CORRECT answer, but too late
+      idempotencyKey: crypto.randomUUID(),
+    });
+
+    expect(res.points).toBe(0);
+    expect(res.basePoints).toBe(0);
+    expect(res.speedBonus).toBe(0);
+  });
+});
+
+// --- Emotes (GDD §10.2): validated, capped, participant-only ------------------
+describe("emotes (v1_sendEmote)", () => {
+  it("a participant sends a valid emote; it lands in the match's emotes", async () => {
+    const matchId = await newDuel("spin");
+    const res = await call(A, "v1_sendEmote", {
+      matchId,
+      emote: "fire",
+      idempotencyKey: crypto.randomUUID(),
+    });
+    expect(res.sent).toBe(true);
+    expect(res.remaining).toBe(2); // cap 3 − this one
+
+    const snap = await adminDb.collection(`matches/${matchId}/emotes`).get();
+    const mine = snap.docs.filter((d) => d.data()["senderUid"] === A.uid);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.data()["emote"]).toBe("fire");
+  });
+
+  it("rejects an emote outside the allowed set", async () => {
+    const matchId = await newDuel("spin");
+    await expect(
+      call(A, "v1_sendEmote", {
+        matchId,
+        emote: "banana",
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({
+      code: "functions/invalid-argument",
+      details: { field: "emote" },
+    });
+  });
+
+  it("enforces the per-match send cap (3) per sender", async () => {
+    const matchId = await newDuel("spin");
+    for (let i = 0; i < 3; i++) {
+      await call(A, "v1_sendEmote", {
+        matchId,
+        emote: "clap",
+        idempotencyKey: crypto.randomUUID(),
+      });
+    }
+    await expect(
+      call(A, "v1_sendEmote", {
+        matchId,
+        emote: "clap",
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({
+      code: "functions/resource-exhausted",
+      details: { reason: "emote-rate-limit" },
+    });
+  });
+
+  it("a double-tap (same key) is an idempotent no-op", async () => {
+    const matchId = await newDuel("spin");
+    const key = crypto.randomUUID();
+    const first = await call(A, "v1_sendEmote", { matchId, emote: "wow", idempotencyKey: key });
+    const replay = await call(A, "v1_sendEmote", { matchId, emote: "wow", idempotencyKey: key });
+    expect(replay).toEqual(first); // cached, not a second write
+    const snap = await adminDb.collection(`matches/${matchId}/emotes`).get();
+    expect(snap.docs.filter((d) => d.data()["senderUid"] === A.uid)).toHaveLength(1);
+  });
+
+  it("rejects a non-participant", async () => {
+    const matchId = await newDuel("spin");
+    // C is authenticated but not in the match — no profile needed; v1_sendEmote
+    // rejects on the participant check alone.
+    const C = await makeClient("itC");
+    try {
+      await expect(
+        call(C, "v1_sendEmote", {
+          matchId,
+          emote: "fire",
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      ).rejects.toMatchObject({
+        code: "functions/permission-denied",
+        details: { reason: "not-participant" },
+      });
+    } finally {
+      await deleteClient((C.fns as any).app);
+    }
   });
 });

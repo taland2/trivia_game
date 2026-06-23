@@ -6,24 +6,33 @@ import 'package:go_router/go_router.dart';
 import 'data/categories.dart';
 import 'data/category_mode.dart';
 import 'l10n/app_localizations.dart';
+import 'models/round_result.dart';
 import 'question_screen.dart';
 import 'round_result_screen.dart';
 import 'router/routes.dart';
 import 'screens/match/match_controller.dart';
+import 'screens/match/match_result_screen.dart';
+import 'screens/match/recap_screen.dart';
 import 'screens/match/wheel_spin.dart';
 import 'services/audio_service.dart';
+import 'state/auth_providers.dart';
 import 'theme/category_colors.dart';
 import 'theme/tokens.dart';
 import 'widgets/async_value_view.dart';
 
-/// Builds the per-question result from the serving that produced it. Capturing
-/// the serving at result time avoids correlating by value later.
+/// Builds the per-question result from the serving that produced it. `wasCorrect`
+/// comes from the server outcome (this player's pick vs. the revealed correctIx),
+/// not a `points > 0` heuristic (H7).
 @visibleForTesting
-RoundQuestionResult roundResultFrom(Map<String, dynamic> serving, int points) =>
+RoundQuestionResult roundResultFrom(
+  Map<String, dynamic> serving,
+  int points,
+  bool wasCorrect,
+) =>
     RoundQuestionResult(
       difficulty: serving['difficulty'] as String,
       points: points,
-      wasCorrect: points > 0,
+      wasCorrect: wasCorrect,
     );
 
 /// The phases a round walks through after `v1_startRound`.
@@ -92,23 +101,32 @@ class _RoundScreenState extends ConsumerState<RoundScreen> {
     }
   }
 
-  void _onQuestionResult(int correctIx, int points, bool roundDone) {
+  void _onQuestionResult(AnswerOutcome outcome, bool wasCorrect) {
     if (_advancing) return;
-    _results.add(roundResultFrom(_servings[_currentQ], points));
+    _results.add(roundResultFrom(_servings[_currentQ], outcome.points, wasCorrect));
     _advancing = true;
     AudioService().play('whoosh');
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (!mounted) return;
       _advancing = false;
-      if (roundDone) {
-        _showResult();
-      } else {
+      // Route on SERVER truth (H7), not local guesses:
+      if (outcome.replay) {
+        // Exact tie (GDD §4.5): the round is re-dealt fresh at the same roundIx.
+        _start();
+      } else if (!outcome.roundDone) {
         setState(() => _currentQ++);
+      } else if (outcome.matchResult != null) {
+        _showMatchResult(outcome.matchResult!);
+      } else if (outcome.roundResult != null) {
+        _showRecap(outcome.roundResult!);
+      } else {
+        // Round done for me, but the opponent hasn't played yet — no reveal exists.
+        _showLocalSummary();
       }
     });
   }
 
-  void _showResult() {
+  void _showLocalSummary() {
     final l = AppLocalizations.of(context);
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
@@ -119,6 +137,34 @@ class _RoundScreenState extends ConsumerState<RoundScreen> {
           // After a turn the match flips to the opponent; the player returns Home
           // where the (now opponent-turn) match shows as waiting.
           onContinue: () => context.go(Routes.home),
+        ),
+      ),
+    );
+  }
+
+  void _showRecap(RoundResult result) {
+    final meUid = ref.read(currentUidProvider);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RecapScreen(
+          matchId: widget.matchId,
+          meUid: meUid,
+          result: result,
+          category: _category,
+          onContinue: () => context.go(Routes.home),
+        ),
+      ),
+    );
+  }
+
+  void _showMatchResult(MatchResult result) {
+    final meUid = ref.read(currentUidProvider);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => MatchResultScreen(
+          matchId: widget.matchId,
+          meUid: meUid,
+          result: result,
         ),
       ),
     );
@@ -159,6 +205,7 @@ class _RoundScreenState extends ConsumerState<RoundScreen> {
         return QuestionScreen(
           key: ValueKey(_currentQ),
           serving: _servings[_currentQ],
+          category: _category,
           questionNumber: _currentQ + 1,
           totalQuestions: _servings.length,
           onResult: _onQuestionResult,

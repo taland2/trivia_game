@@ -357,6 +357,128 @@ established once, reused everywhere.
 
 **Exit checkpoint:** the full duel loop is playable through real navigation, no debug screens.
 
+> **2026-06-23 — Phase 6 split (6a ✅ shipped, 6b planned).** 6a shipped the shell
+> skeleton — 4-tab nav, Home (active/pending matches), new-duel flow (friend picker,
+> category-mode picker, wheel), the real on-device duel loop (commit `03880d7`). A 47-finding
+> code review (`docs/16`) + remediation plan (`docs/17`) then intervened; **WS1 (server
+> integrity: H1 out-of-order guard, H2/M1/M2 idempotency + transactional caps) landed**
+> (commit `8b98aec`). **6b** completes the *visible* duel loop (recap + match-result +
+> emotes + profile/settings) and folds in the review's client-side workstreams (WS2) plus
+> the cheap WS3 docs / WS4 cleanup paydown the remediation plan sequences here.
+>
+> **Product decisions (this session):** (1) **Emotes — full build now**: server-validated
+> `v1_sendEmote` callable with a `3/match` cap (⚖️ `balance.ts`), not a client-direct write.
+> (2) **Profile — settings screen + real Level/XP**: live language switch + sound/haptics
+> toggles (plumbing exists in `settings_providers.dart`) and a real level ring / XP bar read
+> from `users/{uid}`; match-history list stays a Phase-7 placeholder.
+
+### Phase 6b — Complete the Duel Loop + Client Truth
+*Refs: doc 04 §2–3 (§3 screens 3/6/7/10), doc 02 §10.2 (emotes), docs 16/17 (WS2–WS4)*
+
+**6b-1 — Server result truth → recap + match-result screens (WS2.1 / H7).** Today
+`round_screen.dart` re-derives outcomes from a `points > 0` heuristic (`roundResultFrom`)
+and just returns Home after a turn — there is no recap or win/loss screen. Fix the data path
+first, then build the screens on top of the real projection:
+- Extend `AnswerOutcome` to carry `replay`, `roundResult`, `matchResult`; add Dart
+  `RoundResult` / `MatchResult` models mirroring `RoundResultSchema` / `MatchResultSchema`
+  (parse in `match_controller.dart`, don't re-derive). Delete the `points > 0` heuristic.
+- `RoundScreen` branches on `replay` (re-enter `startRound` at the same `roundIx` for the
+  §4.5 tie-replay) instead of advancing.
+- **Recap screen** (doc 04 §3.3/§3.6): reads the participant-readable `recaps/{roundIx}`
+  projection (function-written when both finish — Phase 3 reveal rule) → round-by-round
+  side-by-side ✓/✗ + times vs. opponent. Match lobby = round history + `scoreTotals` +
+  whose-turn + emote strip.
+- **Match-result screen** (doc 04 §3.7): winner celebration (confetti, reduced-motion aware),
+  XP gained + weekly points gained (from `matchResult`), `[Rematch]` (calls `acceptRematch`,
+  needs the idempotencyKey wiring — not yet in `match_controller`) + `[Share]`.
+- *Tests:* widget test with a fake `MatchApi` returning a `matchResult` → result screen
+  renders from the projection, not from `points`; replay branch re-enters `startRound`.
+
+**6b-2 — Question-screen correctness (WS2.2/H6, WS2.3/H5, WS2.4/M6).**
+- H6: add `basePoints` + `speedBonus` to the `v1_submitAnswer` response + contract; show the
+  real split on the fly-up; delete the `base = points ~/ 2` fabrication. Invariant
+  `basePoints + speedBonus === points` (server unit test).
+- H5: replace hardcoded `'קל'/'בינוני'/'קשה'` with existing `l.difficultyEasy/Medium/Hard`;
+  add a `questionProgress(n, total)` key to `app_en.arb` + `app_he.arb`; regenerate. Widget
+  test in EN locale asserts no Hebrew in the header.
+- M6: wrap answer buttons in `Semantics(button: true, label, selected)`; label the wheel and
+  points fly-up. Widget test asserts `SemanticsFlag.isButton` on answer tiles.
+
+**6b-3 — Profile & Settings (doc 04 §2/§3.10, §5/§6).**
+- Settings screen: language switch (flips RTL live via `localeProvider`; also mirrors to the
+  whitelisted `users/{uid}.language` profile field — guardrail #1), sound + haptics toggles
+  (wired to the existing `settingsProvider`). All copy via l10n keys.
+- Profile: real level ring + XP bar read from `users/{uid}.xp`/`level` (economy write-side
+  exists since 4b). Match-history list = Phase-7 placeholder (empty-state pattern).
+
+**6b-4 — Emotes (full build — doc 02 §10.2).**
+- `balance.ts`: `emoteSet` (8 localized emotes ⚖️) + `emotesPerMatch: 3` ⚖️; export via
+  `getBalance()`. New `packages/api_contract/src/emote.ts` (`SendEmoteRequest`/`Response`).
+- Backend `v1_sendEmote`: validates membership + emote-in-set, enforces the per-sender
+  `3/match` cap transactionally, writes to `matches/{matchId}/emotes/*` (function-only write,
+  participant-read). Idempotency key like the other mutating callables.
+- `firestore.rules`: participant **read** on `matches/*/emotes/*`; **deny** client writes
+  (integrity write via the callable). Rules-matrix test for read-allow / write-deny.
+- Client: emote strip on the match lobby/recap; send + render. Soft client-side disable at 3.
+- *Tests:* send within cap succeeds, 4th rejected (`resource-exhausted`); non-participant
+  rejected; off-set emote rejected.
+
+**6b-5 — Review paydown bundled here (WS3 docs, WS4 cleanup, WS1.3 leftover).**
+- WS3 (the remediation plan sequences docs *before* WS2): batched docs pass — docs/08 §2
+  `matches.scoreTotals` + real `servingsPrivate` fields + idempotency store path; doc 07
+  stranger-queue response shapes + `question-expired` reserved; doc 06 §3 forfeit cadence
+  (15 min). *(Progress Tracker rows + the 6a completion retro are deliberately left until the
+  housekeeping pass — not part of this plan block.)*
+- WS4 cleanup: pin `intl` in `app/pubspec.yaml`; add `.where('quarantined','==',false)` in
+  `questionBank.ts`; fix `question_screen.dart` reading `serving['category']` (never present
+  → accent always defaults); bump `setup-path.ps1` JDK 17→21; clamp timed-out `elapsedMs`.
+- WS1.3 leftover: the missing **submit-after-timeout e2e** test (backdate `servedAt` past
+  `timeLimitMs + grace`, submit a correct `answerIx` → `points: 0`, `timedOut`).
+
+**Note on size:** this is a large session (UI + a backend callable + review paydown). If it
+runs long, split the commit at the 6b-1/6b-2 boundary (client-truth + screens) vs. 6b-3/6b-4
+(profile/settings + emotes), keeping each independently reviewable.
+
+**Exit checkpoint (6b):** the full duel loop is playable end-to-end through real navigation —
+create duel → play a turn → opponent plays → **recap reveal** → **match-result celebration**
+with real XP + weekly points → rematch; **emotes** send (capped 3/match) and appear on the
+lobby/recap; **settings** switch language live (RTL flips, no restart) and toggle
+sound/haptics; **profile** shows real level/XP; no debug screens. WS2 client gaps closed;
+the EN locale is Hebrew-free on the question screen; review docs drift reconciled.
+
+> **2026-06-23 — Phase 6b ✅ complete.**
+> **Server truth → screens (WS2.1/H7):** `v1_submitAnswer` response carries the real
+> `basePoints`+`speedBonus` (H6) and the existing `replay`/`roundResult`/`matchResult`;
+> client `AnswerOutcome` now parses all of it and new Dart models (`RoundResult`/
+> `MatchResult`/`RecapPlayer`, `app/lib/models/round_result.dart`) mirror the contract.
+> `RoundScreen` routes on server truth — replay → re-deal same round; matchResult →
+> `MatchResultScreen`; roundResult → `RecapScreen`; else local summary. The `points > 0`
+> heuristic in `roundResultFrom` is gone (per-question ✓/✗ now comes from the server outcome).
+> **New screens:** `RecapScreen` (round-by-round you-vs-opponent reveal from `recaps/*`),
+> `MatchResultScreen` (win/loss celebration, final rounds score, weekly points, rematch via
+> `v1_acceptRematch` + clipboard share). **Question screen (WS2.2/2.3/2.4):** real points
+> split on the fly-up (no fabricated 50/50), localized difficulty + `questionLabel` (EN no
+> longer shows Hebrew), `Semantics(button:…)` on answer buttons.
+> **Profile/Settings (6b-3):** `SettingsScreen` (live language switch mirrored to the
+> whitelisted `users/{uid}.language`, sound/haptics toggles wired to the existing
+> `settingsProvider`); `ProfileScreen` level ring + XP bar from `users/{uid}`. The server
+> now also writes `levelFloorXp`/`levelCeilXp` (`nextUserXp`) so the bar needs no ⚖️ curve
+> client-side (guardrail #4). Match history stays a Phase-7 placeholder.
+> **Emotes — full build (6b-4):** `balance.ts` `emotes.set` (8 keys ⚖️) + `perMatch:3` ⚖️;
+> `v1_sendEmote` callable (set-validated, transactional per-sender cap, idempotent) writes
+> function-only/participant-read `matches/{id}/emotes/*`; `firestore.rules` read-allow /
+> write-deny; client `EmoteStrip` (catalog → emoji+l10n, live stream, server-driven disable).
+> **Review paydown:** WS4 — `intl` pinned, in-memory `quarantined` filter (+ seed field),
+> `serving['category']` accent bug fixed (category passed explicitly), `elapsedMs` clamp,
+> `setup-path.ps1` JDK 17→21. WS3 — docs/06 forfeit cadence (15 min), docs/07 submit/stranger/
+> emote shapes + `question-expired` reserved, docs/08 `scoreTotals`/`emotes`/xp-bounds/
+> `servingsPrivate`/`idempotency`. WS1.3 — the missing submit-after-timeout e2e test added.
+> **Tests:** 56 functions unit + 20 api_contract + **53 emulator** (+H6 split, submit-after-
+> timeout, 5 emote integration, 2 emote rules) + 16 Flutter widget; `flutter analyze`, ESLint,
+> `tsc` all clean.
+> **Deferred (tracked):** WS5 items (App Check, rate-limit-from-RC, idempotency TTL, selection
+> indexes/`rand`, Flutter golden-path E2E, opponent-side create cap) remain Phase 10/12 gates.
+
 ## Phase 7 — Daily, Streaks, Weekly Race, XP (full stack)
 *Refs: doc 02 §5, §7–8, doc 08 weekly/daily collections*
 
@@ -449,7 +571,9 @@ operating period, not a build phase).
 | 4a — Core duel rules | ✅ | 2026-06-18 | 666aa83 |
 | 4b — Jobs/economy → Gate A | ✅ | 2026-06-18 | 0874e88 |
 | 5 — Design system | ✅ | 2026-06-19 | (this commit) |
-| 6 — App shell | ☐ | | |
+| 6a — App shell (tabs/Home/duel loop) | ✅ | 2026-06-21 | 03880d7 |
+| 6a review remediation — WS1 (integrity/idempotency) | ✅ | 2026-06-21 | 8b98aec |
+| 6b — Duel loop complete + WS2/WS3/WS4 | ✅ | 2026-06-23 | (this commit) |
 | 7 — Daily/weekly/XP | ☐ | | |
 | 8 — Identity & friends | ☐ | | |
 | 9 — Notifications | ☐ | | |

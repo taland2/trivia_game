@@ -10,6 +10,8 @@ import {
   StartRoundOfferSchema,
   RoundResultSchema,
   MatchResultSchema,
+  SendEmoteRequestSchema,
+  SendEmoteResponseSchema,
 } from "./index.js";
 
 const validServing = {
@@ -94,16 +96,31 @@ describe("SubmitAnswerRequestSchema", () => {
 describe("SubmitAnswerResponseSchema", () => {
   it("accepts a minimal scoring response", () => {
     expect(
-      SubmitAnswerResponseSchema.parse({ correctIx: 1, points: 133 }),
-    ).toEqual({ correctIx: 1, points: 133 });
+      SubmitAnswerResponseSchema.parse({
+        correctIx: 1,
+        points: 133,
+        basePoints: 100,
+        speedBonus: 33,
+      }),
+    ).toEqual({ correctIx: 1, points: 133, basePoints: 100, speedBonus: 33 });
   });
 
   it("rejects negative or fractional points (server rounds to integer)", () => {
     expect(() =>
-      SubmitAnswerResponseSchema.parse({ correctIx: 1, points: -5 }),
+      SubmitAnswerResponseSchema.parse({
+        correctIx: 1,
+        points: -5,
+        basePoints: 0,
+        speedBonus: 0,
+      }),
     ).toThrow();
     expect(() =>
-      SubmitAnswerResponseSchema.parse({ correctIx: 1, points: 133.5 }),
+      SubmitAnswerResponseSchema.parse({
+        correctIx: 1,
+        points: 133.5,
+        basePoints: 100,
+        speedBonus: 33.5,
+      }),
     ).toThrow();
   });
 
@@ -123,6 +140,8 @@ describe("SubmitAnswerResponseSchema", () => {
     const parsed = SubmitAnswerResponseSchema.parse({
       correctIx: 2,
       points: 150,
+      basePoints: 100,
+      speedBonus: 50,
       roundDone: true,
       roundResult: {
         roundIx: 0,
@@ -139,11 +158,42 @@ describe("SubmitAnswerResponseSchema", () => {
   });
 });
 
+describe("SendEmoteRequestSchema / SendEmoteResponseSchema", () => {
+  const key = "00000000-0000-4000-8000-000000000000";
+
+  it("requires matchId, a bounded emote key, and a UUID idempotency key", () => {
+    expect(
+      SendEmoteRequestSchema.parse({ matchId: "m1", emote: "fire", idempotencyKey: key }),
+    ).toEqual({ matchId: "m1", emote: "fire", idempotencyKey: key });
+    // empty/oversized emote and a non-uuid key are rejected; the allowed SET is
+    // enforced server-side (balance), not in the contract.
+    expect(() =>
+      SendEmoteRequestSchema.parse({ matchId: "m1", emote: "", idempotencyKey: key }),
+    ).toThrow();
+    expect(() =>
+      SendEmoteRequestSchema.parse({ matchId: "m1", emote: "fire", idempotencyKey: "nope" }),
+    ).toThrow();
+  });
+
+  it("reports sent + non-negative remaining", () => {
+    expect(SendEmoteResponseSchema.parse({ sent: true, remaining: 2 })).toEqual({
+      sent: true,
+      remaining: 2,
+    });
+    expect(() => SendEmoteResponseSchema.parse({ sent: true, remaining: -1 })).toThrow();
+  });
+});
+
 describe("CreateDuelRequestSchema", () => {
   it("accepts opponent + category mode", () => {
+    const key = "00000000-0000-4000-8000-000000000000";
     expect(
-      CreateDuelRequestSchema.parse({ opponentUid: "u2", categoryMode: "spin" }),
-    ).toEqual({ opponentUid: "u2", categoryMode: "spin" });
+      CreateDuelRequestSchema.parse({
+        opponentUid: "u2",
+        categoryMode: "spin",
+        idempotencyKey: key,
+      }),
+    ).toEqual({ opponentUid: "u2", categoryMode: "spin", idempotencyKey: key });
   });
 
   it("rejects an unknown category mode and extra fields", () => {

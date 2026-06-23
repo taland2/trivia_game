@@ -11,10 +11,12 @@ void main() {
     final easy = roundResultFrom(
       {'difficulty': 'easy', 'qIx': 0, 'text': 'x', 'answers': [], 'timeLimitMs': 10000},
       0,
+      false,
     );
     final hard = roundResultFrom(
       {'difficulty': 'hard', 'qIx': 1, 'text': 'y', 'answers': [], 'timeLimitMs': 20000},
       0,
+      false,
     );
 
     // Both are wrong with 0 points (value-identical), but different difficulties.
@@ -24,9 +26,10 @@ void main() {
     expect(hard.difficulty, 'hard');
   });
 
-  test('points > 0 marks the answer correct', () {
-    final correct = roundResultFrom({'difficulty': 'medium'}, 75);
-    final wrong = roundResultFrom({'difficulty': 'medium'}, 0);
+  test('carries the server-provided wasCorrect (no points > 0 heuristic)', () {
+    // wasCorrect now comes from the server outcome, not derived from points.
+    final correct = roundResultFrom({'difficulty': 'medium'}, 75, true);
+    final wrong = roundResultFrom({'difficulty': 'medium'}, 0, false);
 
     expect(correct.wasCorrect, true);
     expect(wrong.wasCorrect, false);

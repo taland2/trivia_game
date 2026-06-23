@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'l10n/app_localizations.dart';
+import 'models/round_result.dart';
 import 'theme/tokens.dart';
 import 'theme/category_colors.dart';
 import 'widgets/countdown_ring.dart';
@@ -9,15 +11,36 @@ import 'services/audio_service.dart';
 import 'services/haptics_service.dart';
 
 /// Server response for a submitted answer, decoupled from the Firebase SDK so
-/// the screen can be widget-tested with an injected fake.
+/// the screen can be widget-tested with an injected fake. Carries the FULL server
+/// truth (H7): the real points split (`basePoints`/`speedBonus`) and the round /
+/// match result projections, so the client renders outcomes instead of guessing.
 class AnswerOutcome {
   final int correctIx;
   final int points;
+  final int basePoints;
+  final int speedBonus;
   final bool roundDone;
+
+  /// True when an exact points-and-time tie forces a fresh re-deal of this round
+  /// (GDD §4.5) — no reveal; RoundScreen re-enters startRound.
+  final bool replay;
+
+  /// Present on the answer that completes the round for the SECOND finisher (the
+  /// reveal becomes visible to both). Null otherwise.
+  final RoundResult? roundResult;
+
+  /// Present when that round also ends the match. Null otherwise.
+  final MatchResult? matchResult;
+
   const AnswerOutcome({
     required this.correctIx,
     required this.points,
+    required this.basePoints,
+    required this.speedBonus,
     required this.roundDone,
+    this.replay = false,
+    this.roundResult,
+    this.matchResult,
   });
 }
 
@@ -32,6 +55,7 @@ class QuestionScreen extends StatefulWidget {
   const QuestionScreen({
     super.key,
     required this.serving,
+    required this.category,
     required this.questionNumber,
     required this.totalQuestions,
     required this.onResult,
@@ -40,9 +64,18 @@ class QuestionScreen extends StatefulWidget {
   });
 
   final Map<String, dynamic> serving;
+
+  /// The round's category accent. Passed explicitly because the strict `Serving`
+  /// payload carries no category (WS4 — `serving['category']` was always absent,
+  /// so the accent silently defaulted).
+  final String category;
   final int questionNumber;
   final int totalQuestions;
-  final void Function(int correctIx, int points, bool roundDone) onResult;
+
+  /// Reports the full server outcome plus whether THIS player picked correctly
+  /// (the local per-question ✓/✗), so RoundScreen routes on server truth (H7)
+  /// rather than a `points > 0` heuristic.
+  final void Function(AnswerOutcome outcome, bool wasCorrect) onResult;
 
   // Injectable seams for testing (submit is bound to the match by RoundScreen).
   final SubmitAnswerFn submit;
@@ -55,7 +88,7 @@ class QuestionScreen extends StatefulWidget {
 class _QuestionScreenState extends State<QuestionScreen> {
   int? _selectedIx;
   int? _correctIx;
-  int? _points;
+  AnswerOutcome? _outcome;
   String? _error;
 
   late int _qIx;
@@ -63,7 +96,6 @@ class _QuestionScreenState extends State<QuestionScreen> {
   late List<String> _answers;
   late int _timeLimitMs;
   late String _difficulty;
-  late String _category;
 
   late DateTime _servedAt;
   Timer? _ticker;
@@ -76,7 +108,6 @@ class _QuestionScreenState extends State<QuestionScreen> {
   // exactly once with the real roundDone. (RoundScreen._advancing is a second,
   // cheaper line of defense.)
   bool _resultDispatched = false;
-  bool _roundDone = false;
 
   @override
   void initState() {
@@ -87,7 +118,6 @@ class _QuestionScreenState extends State<QuestionScreen> {
     _answers = List<String>.from(s['answers'] as List);
     _timeLimitMs = (s['timeLimitMs'] as num).toInt();
     _difficulty = s['difficulty'] as String;
-    _category = s['category'] as String? ?? 'general_knowledge';
     _servedAt = widget.now();
     _startVisualTimer();
   }
@@ -95,7 +125,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
   void _dispatchResult() {
     if (_resultDispatched || !mounted) return;
     _resultDispatched = true;
-    widget.onResult(_correctIx!, _points!, _roundDone);
+    widget.onResult(_outcome!, _selectedIx == _outcome!.correctIx);
   }
 
   @override
@@ -146,8 +176,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
       if (!mounted) return;
       setState(() {
         _correctIx = outcome.correctIx;
-        _points = outcome.points;
-        _roundDone = outcome.roundDone;
+        _outcome = outcome;
       });
 
       if (answerIx == outcome.correctIx) {
@@ -159,7 +188,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
       }
 
       await Future.delayed(const Duration(milliseconds: 500));
-      _showPointsFlyUp(outcome.points);
+      _showPointsFlyUp(outcome);
 
       await Future.delayed(const Duration(milliseconds: 2000));
       _dispatchResult();
@@ -168,11 +197,13 @@ class _QuestionScreenState extends State<QuestionScreen> {
     }
   }
 
-  void _showPointsFlyUp(int points) {
+  void _showPointsFlyUp(AnswerOutcome outcome) {
     if (!mounted) return;
-    final base = points ~/ 2;
-    final bonus = points - base;
-    final text = '$base + $bonus ⚡';
+    if (outcome.points <= 0) return; // no fly-up on a miss/timeout
+    // Real server split (H6): base points + speed bonus, never a fabricated 50/50.
+    final text = outcome.speedBonus > 0
+        ? '${outcome.basePoints} + ${outcome.speedBonus} ⚡'
+        : '${outcome.basePoints}';
 
     showDialog(
       context: context,
@@ -211,7 +242,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
       );
     }
 
-    final categoryColor = CategoryColors.getColor(_category);
+    final categoryColor = CategoryColors.getColor(widget.category);
     final buttonStates = _getButtonStates();
 
     return GestureDetector(
@@ -257,10 +288,11 @@ class _QuestionScreenState extends State<QuestionScreen> {
   }
 
   Widget _buildHeader() {
+    final l = AppLocalizations.of(context);
     final diffLabel = switch (_difficulty) {
-      'easy' => 'קל',
-      'medium' => 'בינוני',
-      'hard' => 'קשה',
+      'easy' => l.difficultyEasy,
+      'medium' => l.difficultyMedium,
+      'hard' => l.difficultyHard,
       _ => _difficulty,
     };
 
@@ -268,7 +300,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          'שאלה ${widget.questionNumber}/${widget.totalQuestions}',
+          l.questionLabel(widget.questionNumber, widget.totalQuestions),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         Container(

@@ -4,6 +4,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/category_mode.dart';
+import '../../models/round_result.dart';
 import '../../question_screen.dart' show AnswerOutcome;
 import '../../state/firebase_providers.dart';
 
@@ -58,6 +59,12 @@ abstract class MatchApi {
     required int qIx,
     required int? answerIx,
   });
+
+  /// `v1_acceptRematch` → the new match's id (GDD §4.2, roles swapped).
+  Future<String> acceptRematch({required String matchId});
+
+  /// `v1_sendEmote` (GDD §10.2) → emotes the player may still send this match.
+  Future<int> sendEmote({required String matchId, required String emote});
 }
 
 /// Production [MatchApi] backed by Cloud Functions (region pinned via the
@@ -122,8 +129,36 @@ class FirebaseMatchApi implements MatchApi {
     return AnswerOutcome(
       correctIx: (data['correctIx'] as num).toInt(),
       points: (data['points'] as num).toInt(),
+      basePoints: (data['basePoints'] as num?)?.toInt() ?? 0,
+      speedBonus: (data['speedBonus'] as num?)?.toInt() ?? 0,
       roundDone: data['roundDone'] as bool? ?? false,
+      replay: data['replay'] as bool? ?? false,
+      roundResult: data['roundResult'] == null
+          ? null
+          : RoundResult.fromMap(data['roundResult'] as Map),
+      matchResult: data['matchResult'] == null
+          ? null
+          : MatchResult.fromMap(data['matchResult'] as Map),
     );
+  }
+
+  @override
+  Future<String> acceptRematch({required String matchId}) async {
+    final res = await _functions.httpsCallable('v1_acceptRematch').call<Map>({
+      'matchId': matchId,
+      'idempotencyKey': genUuid(),
+    });
+    return res.data['newMatchId'] as String;
+  }
+
+  @override
+  Future<int> sendEmote({required String matchId, required String emote}) async {
+    final res = await _functions.httpsCallable('v1_sendEmote').call<Map>({
+      'matchId': matchId,
+      'emote': emote,
+      'idempotencyKey': genUuid(),
+    });
+    return (res.data['remaining'] as num?)?.toInt() ?? 0;
   }
 }
 

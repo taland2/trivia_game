@@ -445,6 +445,174 @@ abstract class AppLocalizations {
   /// In he, this message translates to:
   /// **'מול {opponent}'**
   String matchVsOpponent(String opponent);
+
+  /// No description provided for @recapTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'סיכום הסבב'**
+  String get recapTitle;
+
+  /// No description provided for @recapYouWonRound.
+  ///
+  /// In he, this message translates to:
+  /// **'ניצחת בסבב הזה!'**
+  String get recapYouWonRound;
+
+  /// No description provided for @recapOpponentWonRound.
+  ///
+  /// In he, this message translates to:
+  /// **'היריב לקח את הסבב הזה'**
+  String get recapOpponentWonRound;
+
+  /// No description provided for @recapYou.
+  ///
+  /// In he, this message translates to:
+  /// **'את/ה'**
+  String get recapYou;
+
+  /// No description provided for @recapOpponent.
+  ///
+  /// In he, this message translates to:
+  /// **'יריב'**
+  String get recapOpponent;
+
+  /// No description provided for @matchResultWin.
+  ///
+  /// In he, this message translates to:
+  /// **'ניצחת!'**
+  String get matchResultWin;
+
+  /// No description provided for @matchResultLoss.
+  ///
+  /// In he, this message translates to:
+  /// **'הפסדת'**
+  String get matchResultLoss;
+
+  /// No description provided for @matchResultWeeklyPoints.
+  ///
+  /// In he, this message translates to:
+  /// **'+{points} נקודות שבועיות'**
+  String matchResultWeeklyPoints(int points);
+
+  /// No description provided for @matchResultRematch.
+  ///
+  /// In he, this message translates to:
+  /// **'ריאנץ\''**
+  String get matchResultRematch;
+
+  /// No description provided for @matchResultShare.
+  ///
+  /// In he, this message translates to:
+  /// **'שיתוף'**
+  String get matchResultShare;
+
+  /// No description provided for @matchResultShareCopied.
+  ///
+  /// In he, this message translates to:
+  /// **'התוצאה הועתקה'**
+  String get matchResultShareCopied;
+
+  /// No description provided for @matchResultShareText.
+  ///
+  /// In he, this message translates to:
+  /// **'ניצחתי {you}–{them} בטריוויה!'**
+  String matchResultShareText(int you, int them);
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'הגדרות'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsLanguage.
+  ///
+  /// In he, this message translates to:
+  /// **'שפה'**
+  String get settingsLanguage;
+
+  /// No description provided for @settingsFeedback.
+  ///
+  /// In he, this message translates to:
+  /// **'צליל ומישוש'**
+  String get settingsFeedback;
+
+  /// No description provided for @settingsSound.
+  ///
+  /// In he, this message translates to:
+  /// **'אפקטים קוליים'**
+  String get settingsSound;
+
+  /// No description provided for @settingsHaptics.
+  ///
+  /// In he, this message translates to:
+  /// **'רטט'**
+  String get settingsHaptics;
+
+  /// No description provided for @profileMatchHistory.
+  ///
+  /// In he, this message translates to:
+  /// **'היסטוריית משחקים'**
+  String get profileMatchHistory;
+
+  /// No description provided for @profileLevelXp.
+  ///
+  /// In he, this message translates to:
+  /// **'רמה {level} · {xp} נק׳ ניסיון'**
+  String profileLevelXp(int level, int xp);
+
+  /// No description provided for @emoteLimitReached.
+  ///
+  /// In he, this message translates to:
+  /// **'ניצלת את כל האימוג׳ים במשחק הזה'**
+  String get emoteLimitReached;
+
+  /// No description provided for @emoteLaugh.
+  ///
+  /// In he, this message translates to:
+  /// **'חחח'**
+  String get emoteLaugh;
+
+  /// No description provided for @emoteFire.
+  ///
+  /// In he, this message translates to:
+  /// **'אש'**
+  String get emoteFire;
+
+  /// No description provided for @emoteRevenge.
+  ///
+  /// In he, this message translates to:
+  /// **'נקמה!'**
+  String get emoteRevenge;
+
+  /// No description provided for @emoteLucky.
+  ///
+  /// In he, this message translates to:
+  /// **'מזל'**
+  String get emoteLucky;
+
+  /// No description provided for @emoteWow.
+  ///
+  /// In he, this message translates to:
+  /// **'וואו'**
+  String get emoteWow;
+
+  /// No description provided for @emoteClap.
+  ///
+  /// In he, this message translates to:
+  /// **'כל הכבוד'**
+  String get emoteClap;
+
+  /// No description provided for @emoteGg.
+  ///
+  /// In he, this message translates to:
+  /// **'משחק טוב'**
+  String get emoteGg;
+
+  /// No description provided for @emoteThink.
+  ///
+  /// In he, this message translates to:
+  /// **'הממ'**
+  String get emoteThink;
 }
 
 class _AppLocalizationsDelegate

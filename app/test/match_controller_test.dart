@@ -54,8 +54,20 @@ class _FakeMatchApi implements MatchApi {
   }) async {
     submittedRoundIx = roundIx;
     submittedQIx = qIx;
-    return const AnswerOutcome(correctIx: 0, points: 50, roundDone: false);
+    return const AnswerOutcome(
+      correctIx: 0,
+      points: 50,
+      basePoints: 40,
+      speedBonus: 10,
+      roundDone: false,
+    );
   }
+
+  @override
+  Future<String> acceptRematch({required String matchId}) async => 'm2';
+
+  @override
+  Future<int> sendEmote({required String matchId, required String emote}) async => 2;
 }
 
 Future<void> _pump(WidgetTester tester, _FakeMatchApi api) async {

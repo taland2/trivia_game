@@ -23,7 +23,12 @@ export type SubmitAnswerRequest = z.infer<typeof SubmitAnswerRequestSchema>;
 // time tie and is being re-dealt with fresh questions (GDD §4.5) — no reveal.
 export const SubmitAnswerResponseSchema = z.object({
   correctIx: z.number().int().min(0).max(3),
+  // points = basePoints + speedBonus (server invariant). The client shows the
+  // real split on the fly-up (H6) instead of fabricating a 50/50 guess. All three
+  // are 0 on a wrong/timed-out answer.
   points: z.number().int().min(0),
+  basePoints: z.number().int().min(0),
+  speedBonus: z.number().int().min(0),
   roundDone: z.boolean().optional(),
   replay: z.boolean().optional(),
   roundResult: RoundResultSchema.optional(),

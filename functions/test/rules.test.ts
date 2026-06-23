@@ -54,6 +54,7 @@ beforeEach(async () => {
       perPlayer: {},
     });
     await setDoc(doc(db, "matches/m1/recaps/0"), { winner: A });
+    await setDoc(doc(db, "matches/m1/emotes/e1"), { senderUid: A, emote: "fire" });
     await setDoc(doc(db, "users", A, "matchList", "m1"), { opponentUid: B });
     await setDoc(doc(db, "questions/q1"), { text: "secret" });
     await setDoc(doc(db, "servingsPrivate/m1_0_0_uidA"), { correctIx: 2 });
@@ -88,6 +89,23 @@ describe("rounds vs recaps (reveal rule)", () => {
     await assertSucceeds(getDoc(doc(env.authenticatedContext(A).firestore(), "matches/m1/recaps/0")));
     await assertSucceeds(getDoc(doc(env.authenticatedContext(B).firestore(), "matches/m1/recaps/0")));
     await assertFails(getDoc(doc(env.authenticatedContext(C).firestore(), "matches/m1/recaps/0")));
+  });
+});
+
+describe("emotes (GDD §10.2)", () => {
+  it("are participant-readable, denied to others", async () => {
+    await assertSucceeds(getDoc(doc(env.authenticatedContext(A).firestore(), "matches/m1/emotes/e1")));
+    await assertSucceeds(getDoc(doc(env.authenticatedContext(B).firestore(), "matches/m1/emotes/e1")));
+    await assertFails(getDoc(doc(env.authenticatedContext(C).firestore(), "matches/m1/emotes/e1")));
+  });
+
+  it("are never client-writable (sent only via v1_sendEmote)", async () => {
+    await assertFails(
+      setDoc(doc(env.authenticatedContext(A).firestore(), "matches/m1/emotes/e2"), {
+        senderUid: A,
+        emote: "fire",
+      }),
+    );
   });
 });
 

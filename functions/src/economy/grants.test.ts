@@ -67,7 +67,19 @@ describe("levelForXp (curve: 100 × n^1.5)", () => {
 
 describe("nextUserXp", () => {
   it("adds the delta and recomputes the level from the total", () => {
-    expect(nextUserXp(280, 3, b)).toEqual({ xp: 283, level: 2 });
-    expect(nextUserXp(0, 0, b)).toEqual({ xp: 0, level: 1 });
+    // Also carries the current level's XP boundaries so the client can draw the
+    // level bar without the ⚖️ curve (xpToReach(2)=283, xpToReach(3)=520).
+    expect(nextUserXp(280, 3, b)).toEqual({
+      xp: 283,
+      level: 2,
+      levelFloorXp: 283,
+      levelCeilXp: 520,
+    });
+    expect(nextUserXp(0, 0, b)).toEqual({
+      xp: 0,
+      level: 1,
+      levelFloorXp: 0,
+      levelCeilXp: 283,
+    });
   });
 });

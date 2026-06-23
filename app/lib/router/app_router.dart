@@ -10,6 +10,7 @@ import '../screens/play/category_mode_picker.dart';
 import '../screens/play/friend_picker_screen.dart';
 import '../screens/play/play_screen.dart';
 import '../screens/profile/profile_screen.dart';
+import '../screens/profile/settings_screen.dart';
 import '../shell/home_shell.dart';
 import 'routes.dart';
 
@@ -72,6 +73,13 @@ final appRouter = GoRouter(
               path: Routes.profile,
               name: Routes.nameProfile,
               builder: (context, state) => const ProfileScreen(),
+              routes: [
+                GoRoute(
+                  path: Routes.settings,
+                  name: Routes.nameSettings,
+                  builder: (context, state) => const SettingsScreen(),
+                ),
+              ],
             ),
           ],
         ),

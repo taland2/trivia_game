@@ -91,16 +91,27 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
   const difficulty = priv["difficulty"] as Difficulty;
 
   // Server-authoritative timing (doc 06 §4 — client times are display-only).
-  const elapsedMs = now.toMillis() - servedAt.toMillis();
-  const { basePoints } = balance.difficulties[difficulty];
-  const { points, timedOut } = scoreAnswer({
+  const rawElapsedMs = now.toMillis() - servedAt.toMillis();
+  const { basePoints: difficultyBase } = balance.difficulties[difficulty];
+  const {
+    points,
+    basePoints: basePointsAwarded,
+    speedBonus,
+    timedOut,
+  } = scoreAnswer({
     correct: answerIx === correctIx,
-    elapsedMs,
+    elapsedMs: rawElapsedMs,
     timeLimitMs,
     graceMs: balance.servingGraceMs,
-    basePoints,
+    basePoints: difficultyBase,
     speedBonusMax: balance.speedBonusMax,
   });
+  // Clamp the stored elapsed into [0, limit+grace] so a clock-skew negative or a
+  // long-after-the-fact submit can't poison the totalMs tiebreak (WS4 nit).
+  const elapsedMs = Math.min(
+    Math.max(rawElapsedMs, 0),
+    timeLimitMs + balance.servingGraceMs,
+  );
   const correct = answerIx === correctIx && !timedOut;
   const lastQ = qIx === balance.match.roundComposition.length - 1;
 
@@ -198,11 +209,13 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
     const res: {
       correctIx: number;
       points: number;
+      basePoints: number;
+      speedBonus: number;
       roundDone?: boolean;
       replay?: boolean;
       roundResult?: RoundResult;
       matchResult?: MatchResult;
-    } = { correctIx, points };
+    } = { correctIx, points, basePoints: basePointsAwarded, speedBonus };
     if (lastQ) res.roundDone = true;
 
     // Mutable copy of match fields we may change, for the matchList projection.

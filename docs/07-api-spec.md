@@ -20,7 +20,7 @@
 | `code` | `details.reason` examples |
 |---|---|
 | `unauthenticated` | — |
-| `failed-precondition` | `not-your-turn`, `match-finished`, `already-answered`, `question-expired`, `daily-already-played` |
+| `failed-precondition` | `not-your-turn`, `match-finished`, `already-answered`, `out-of-order`, `language-mismatch`, `day-out-of-window`, `daily-already-played` (`question-expired` is **reserved** — a late answer scores 0, it is never rejected) |
 | `not-found` | `match`, `user`, `invite-code` |
 | `resource-exhausted` | `max-active-duels`, `max-duels-with-friend`, `emote-rate-limit` |
 | `permission-denied` | `not-participant`, `blocked` |
@@ -56,11 +56,11 @@
 | Function | Request | Response | Notes |
 |---|---|---|---|
 | `v1_createDuel` | `{opponentUid, categoryMode: 'pick'\|'spin'\|'auto'}` | `{matchId}` | Validates friendship, caps (GDD §4.6), same app language (GDD §4.7 → `failed-precondition/language-mismatch`) |
-| `v1_joinStrangerQueue` / `v1_leaveStrangerQueue` | `{categoryMode}` / `{}` | `{queued}` / `{ok}` | Gated by Remote Config `stranger_queue_enabled` (GDD §4.8); pairing by language+level creates a standard match |
-| `v1_acceptRematch` | `{matchId}` | `{newMatchId}` | Same mode, roles swapped |
+| `v1_joinStrangerQueue` / `v1_leaveStrangerQueue` | `{categoryMode, idempotencyKey}` / `{}` | `{queued: false}` \| `{queued: true}` \| `{queued: true, matchId}` / `{left}` | Gated by Remote Config `stranger_queue_enabled` (GDD §4.8); flag off ⇒ `{queued:false}`; pairing by language+level creates a standard match (returns its `matchId`) |
+| `v1_acceptRematch` | `{matchId, idempotencyKey}` | `{newMatchId}` | Same mode, roles swapped; re-checks caps + same-language against current profiles (M2) |
 | `v1_startRound` | `{matchId, categoryId?}` | `{roundIx, category, servings[3], spinResult?}` **or** pick-offer `{needsPick: true, roundIx, offered[3]}` | **pick** is two calls: first call on the player's pick-turn (no `categoryId`) returns a **locked** 3-category offer persisted on the round (no reroll); second call with a `categoryId` from that offer serves the round. **spin** → server picks, response includes `spinResult` for the wheel theater (outcome server-decided). **auto** → server picks, no `categoryId`. Picks alternate via `starterUid = players[roundIx % 2]` (GDD §4.3) |
-| `v1_submitAnswer` | `{matchId, roundIx, qIx, answerIx \| null, idempotencyKey}` | `{correctIx, points, roundDone?, roundResult?, matchResult?}` | `null` = explicit timeout report; server clock decides actual timing (§4 of doc 06) |
-| `v1_sendEmote` | `{matchId, emoteId}` | `{ok}` | Enum-validated, rate-limited |
+| `v1_submitAnswer` | `{matchId, roundIx, qIx, answerIx \| null, idempotencyKey}` | `{correctIx, points, basePoints, speedBonus, roundDone?, replay?, roundResult?, matchResult?}` | `null` = explicit timeout report; server clock decides actual timing (§4 of doc 06). `points = basePoints + speedBonus` (H6, all 0 on a miss). `replay` (GDD §4.5 exact tie) supersedes `roundResult`. Must be submitted **in order** (`out-of-order` otherwise, H1) |
+| `v1_sendEmote` | `{matchId, emote, idempotencyKey}` | `{sent, remaining}` | `emote` validated against the ⚖️ allowed set; per-sender per-match cap (⚖️ `emotes.perMatch`, default 3) → `resource-exhausted/emote-rate-limit`; participants only |
 | `v1_flagQuestion` | `{questionServingId, reason}` | `{ok}` | Reasons enum (doc 03 §7); only after answering |
 
 **Serving payload** (`servings[]` item — note: no correct-answer information):

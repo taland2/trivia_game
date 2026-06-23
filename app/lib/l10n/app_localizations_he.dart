@@ -191,4 +191,94 @@ class AppLocalizationsHe extends AppLocalizations {
   String matchVsOpponent(String opponent) {
     return 'מול $opponent';
   }
+
+  @override
+  String get recapTitle => 'סיכום הסבב';
+
+  @override
+  String get recapYouWonRound => 'ניצחת בסבב הזה!';
+
+  @override
+  String get recapOpponentWonRound => 'היריב לקח את הסבב הזה';
+
+  @override
+  String get recapYou => 'את/ה';
+
+  @override
+  String get recapOpponent => 'יריב';
+
+  @override
+  String get matchResultWin => 'ניצחת!';
+
+  @override
+  String get matchResultLoss => 'הפסדת';
+
+  @override
+  String matchResultWeeklyPoints(int points) {
+    return '+$points נקודות שבועיות';
+  }
+
+  @override
+  String get matchResultRematch => 'ריאנץ\'';
+
+  @override
+  String get matchResultShare => 'שיתוף';
+
+  @override
+  String get matchResultShareCopied => 'התוצאה הועתקה';
+
+  @override
+  String matchResultShareText(int you, int them) {
+    return 'ניצחתי $you–$them בטריוויה!';
+  }
+
+  @override
+  String get settingsTitle => 'הגדרות';
+
+  @override
+  String get settingsLanguage => 'שפה';
+
+  @override
+  String get settingsFeedback => 'צליל ומישוש';
+
+  @override
+  String get settingsSound => 'אפקטים קוליים';
+
+  @override
+  String get settingsHaptics => 'רטט';
+
+  @override
+  String get profileMatchHistory => 'היסטוריית משחקים';
+
+  @override
+  String profileLevelXp(int level, int xp) {
+    return 'רמה $level · $xp נק׳ ניסיון';
+  }
+
+  @override
+  String get emoteLimitReached => 'ניצלת את כל האימוג׳ים במשחק הזה';
+
+  @override
+  String get emoteLaugh => 'חחח';
+
+  @override
+  String get emoteFire => 'אש';
+
+  @override
+  String get emoteRevenge => 'נקמה!';
+
+  @override
+  String get emoteLucky => 'מזל';
+
+  @override
+  String get emoteWow => 'וואו';
+
+  @override
+  String get emoteClap => 'כל הכבוד';
+
+  @override
+  String get emoteGg => 'משחק טוב';
+
+  @override
+  String get emoteThink => 'הממ';
 }

@@ -67,8 +67,12 @@ export async function pickQuestion(
     .where("difficulty", "==", difficulty)
     .get();
 
+  // Exclude quarantined questions (M5 / doc 09): a question flagged bad by the
+  // content-feedback loop must never be served. Filtered in-memory rather than
+  // via `.where('quarantined','==',false)` so docs that predate the field (older
+  // seeds/tests) aren't silently dropped — only an explicit `true` excludes.
   const candidates = snap.docs
-    .filter((d) => !excludeIds.includes(d.id))
+    .filter((d) => !excludeIds.includes(d.id) && d.data()["quarantined"] !== true)
     .map((d) => ({ id: d.id, ...d.data() }) as BankQuestion);
 
   if (candidates.length === 0) {

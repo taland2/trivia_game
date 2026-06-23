@@ -95,5 +95,53 @@
   "matchVsOpponent": "vs {opponent}",
   "@matchVsOpponent": {
     "placeholders": { "opponent": { "type": "String" } }
-  }
+  },
+
+  "recapTitle": "Round recap",
+  "recapYouWonRound": "You won this round!",
+  "recapOpponentWonRound": "Your opponent took this round",
+  "recapYou": "You",
+  "recapOpponent": "Opponent",
+
+  "matchResultWin": "You won!",
+  "matchResultLoss": "You lost",
+  "matchResultWeeklyPoints": "+{points} weekly points",
+  "@matchResultWeeklyPoints": {
+    "placeholders": { "points": { "type": "int" } }
+  },
+  "matchResultRematch": "Rematch",
+  "matchResultShare": "Share",
+  "matchResultShareCopied": "Result copied",
+  "matchResultShareText": "I scored {you}–{them} in Trivia!",
+  "@matchResultShareText": {
+    "placeholders": {
+      "you": { "type": "int" },
+      "them": { "type": "int" }
+    }
+  },
+
+  "settingsTitle": "Settings",
+  "settingsLanguage": "Language",
+  "settingsFeedback": "Sound & haptics",
+  "settingsSound": "Sound effects",
+  "settingsHaptics": "Haptics",
+
+  "profileMatchHistory": "Match history",
+  "profileLevelXp": "Level {level} · {xp} XP",
+  "@profileLevelXp": {
+    "placeholders": {
+      "level": { "type": "int" },
+      "xp": { "type": "int" }
+    }
+  },
+
+  "emoteLimitReached": "You've used all your emotes this match",
+  "emoteLaugh": "Haha",
+  "emoteFire": "On fire",
+  "emoteRevenge": "Revenge!",
+  "emoteLucky": "Lucky",
+  "emoteWow": "Wow",
+  "emoteClap": "Nice",
+  "emoteGg": "Good game",
+  "emoteThink": "Hmm"
 }

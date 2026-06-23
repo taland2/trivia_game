@@ -8,7 +8,7 @@ $additions = @(
     'E:\dev\flutter\bin',
     'E:\dev\android-sdk\platform-tools',
     'E:\dev\android-sdk\cmdline-tools\latest\bin',
-    'E:\dev\java\17\bin'
+    'E:\dev\java\21\bin'
 )
 
 $currentUser = [System.Environment]::GetEnvironmentVariable('PATH', 'User')
@@ -34,5 +34,5 @@ if ($added.Count -gt 0) {
 # Also set ANDROID_HOME for this session and permanently
 $androidHome = 'E:\dev\android-sdk'
 [System.Environment]::SetEnvironmentVariable('ANDROID_HOME', $androidHome, 'User')
-[System.Environment]::SetEnvironmentVariable('JAVA_HOME', 'E:\dev\java\17', 'User')
+[System.Environment]::SetEnvironmentVariable('JAVA_HOME', 'E:\dev\java\21', 'User')
 Write-Host "Set ANDROID_HOME=$androidHome and JAVA_HOME=E:\dev\java\17" -ForegroundColor Cyan

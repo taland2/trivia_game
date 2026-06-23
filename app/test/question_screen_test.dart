@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trivia/l10n/app_localizations.dart';
 import 'package:trivia/question_screen.dart';
 
 // Widget tests for the fire-once result dispatch and timer-expiry submit.
@@ -18,15 +19,13 @@ const _serving = <String, dynamic>{
 /// Records every onResult call so tests can assert exactly-once dispatch.
 class _ResultRecorder {
   int count = 0;
-  int? correctIx;
-  int? points;
-  bool? roundDone;
+  AnswerOutcome? last;
+  bool? wasCorrect;
 
-  void call(int c, int p, bool done) {
+  void call(AnswerOutcome outcome, bool correct) {
     count++;
-    correctIx = c;
-    points = p;
-    roundDone = done;
+    last = outcome;
+    wasCorrect = correct;
   }
 }
 
@@ -43,7 +42,13 @@ class _FakeSubmit {
   }) async {
     calls++;
     lastAnswerIx = answerIx;
-    return AnswerOutcome(correctIx: 0, points: 50, roundDone: roundDone);
+    return AnswerOutcome(
+      correctIx: 0,
+      points: 50,
+      basePoints: 40,
+      speedBonus: 10,
+      roundDone: roundDone,
+    );
   }
 }
 
@@ -67,10 +72,14 @@ Future<void> _pumpQuestion(
       // Suppress the infinite countdown-pulse animation so pumpAndSettle settles.
       data: const MediaQueryData(disableAnimations: true),
       child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('en'),
         home: Scaffold(
           backgroundColor: const Color(0xFF6C63FF),
           body: QuestionScreen(
             serving: _serving,
+            category: 'general_knowledge',
             questionNumber: 1,
             totalQuestions: 3,
             onResult: onResult.call,
@@ -99,9 +108,10 @@ void main() {
     await tester.pump(flush); // drain the delayed-dispatch chain
 
     expect(onResult.count, 1);
-    expect(onResult.correctIx, 0);
-    expect(onResult.points, 50);
-    expect(onResult.roundDone, false);
+    expect(onResult.last!.correctIx, 0);
+    expect(onResult.last!.points, 50);
+    expect(onResult.last!.roundDone, false);
+    expect(onResult.wasCorrect, true);
   });
 
   testWidgets('tapping the screen during feedback does not double-dispatch', (tester) async {
@@ -141,7 +151,7 @@ void main() {
     await tester.pump(flush);
 
     expect(onResult.count, 1);
-    expect(onResult.roundDone, true, reason: 'tap path must not hardcode false');
+    expect(onResult.last!.roundDone, true, reason: 'tap path must not hardcode false');
   });
 
   testWidgets('timer expiry auto-submits with a null answer, once', (tester) async {

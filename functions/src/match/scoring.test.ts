@@ -44,7 +44,12 @@ describe("scoreAnswer — GDD §3.3 formula table", () => {
     "%s answered correctly at %ims → %i points",
     (difficulty, elapsedMs, expected) => {
       const result = scoreAnswer(input(difficulty, { elapsedMs }));
-      expect(result).toEqual({ points: expected, timedOut: false });
+      expect(result.points).toBe(expected);
+      expect(result.timedOut).toBe(false);
+      // H6 invariant: the returned split always reconstructs the total, and the
+      // base is the difficulty's flat base.
+      expect(result.basePoints).toBe(difficulties[difficulty].basePoints);
+      expect(result.basePoints + result.speedBonus).toBe(expected);
     },
   );
 
@@ -59,7 +64,7 @@ describe("scoreAnswer — GDD §3.3 formula table", () => {
 describe("scoreAnswer — wrong answers and timeouts", () => {
   it("wrong answer scores 0 regardless of speed", () => {
     expect(scoreAnswer(input("easy", { correct: false, elapsedMs: 0 }))).toEqual(
-      { points: 0, timedOut: false },
+      { points: 0, basePoints: 0, speedBonus: 0, timedOut: false },
     );
   });
 
@@ -67,6 +72,8 @@ describe("scoreAnswer — wrong answers and timeouts", () => {
     const past = difficulties.easy.timeLimitMs + servingGraceMs + 1;
     expect(scoreAnswer(input("easy", { elapsedMs: past }))).toEqual({
       points: 0,
+      basePoints: 0,
+      speedBonus: 0,
       timedOut: true,
     });
   });
@@ -75,6 +82,8 @@ describe("scoreAnswer — wrong answers and timeouts", () => {
     const inGrace = difficulties.easy.timeLimitMs + servingGraceMs;
     expect(scoreAnswer(input("easy", { elapsedMs: inGrace }))).toEqual({
       points: difficulties.easy.basePoints,
+      basePoints: difficulties.easy.basePoints,
+      speedBonus: 0,
       timedOut: false,
     });
   });
@@ -83,7 +92,7 @@ describe("scoreAnswer — wrong answers and timeouts", () => {
     const past = difficulties.hard.timeLimitMs + servingGraceMs + 500;
     expect(
       scoreAnswer(input("hard", { correct: false, elapsedMs: past })),
-    ).toEqual({ points: 0, timedOut: true });
+    ).toEqual({ points: 0, basePoints: 0, speedBonus: 0, timedOut: true });
   });
 });
 

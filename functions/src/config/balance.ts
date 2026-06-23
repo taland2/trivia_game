@@ -54,6 +54,17 @@ export interface LevelCurveBalance {
   exponent: number;
 }
 
+// Communication: predefined emotes/taunts (GDD §10.2 ⚖️). The set is identifier
+// KEYS, not display strings — the client maps each to an emoji + per-language copy
+// (no free text, humor copy localized per GDD §10.2 / doc 04 §7). The server only
+// validates membership and enforces the per-match send cap.
+export interface EmoteBalance {
+  // Allowed emote keys. Length is the ⚖️ "8 predefined emotes" of GDD §10.2.
+  set: string[];
+  // Max emotes one player may send in a single match (GDD §10.2 ⚖️).
+  perMatch: number;
+}
+
 export interface Balance {
   difficulties: Record<Difficulty, DifficultyBalance>;
   // Max speed bonus fraction: +50% for an instant answer, decaying linearly to 0
@@ -68,6 +79,7 @@ export interface Balance {
   weekly: WeeklyBalance;
   xp: XpBalance;
   levelCurve: LevelCurveBalance;
+  emotes: EmoteBalance;
 }
 
 // GDD §3.2 / §3.3 initial values.
@@ -102,6 +114,11 @@ export const defaultBalance: Balance = {
   levelCurve: {
     base: 100,
     exponent: 1.5,
+  },
+  emotes: {
+    // 8 predefined emote keys (GDD §10.2). The client localizes each.
+    set: ["laugh", "fire", "revenge", "lucky", "wow", "clap", "gg", "think"],
+    perMatch: 3,
   },
 };
 

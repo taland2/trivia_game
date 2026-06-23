@@ -8,6 +8,7 @@ export { v1_createDuel } from "./match/createDuel.js";
 export { v1_startRound } from "./serve/startRound.js";
 export { v1_submitAnswer } from "./match/submitAnswer.js";
 export { v1_acceptRematch } from "./match/acceptRematch.js";
+export { v1_sendEmote } from "./match/sendEmote.js";
 export {
   v1_joinStrangerQueue,
   v1_leaveStrangerQueue,

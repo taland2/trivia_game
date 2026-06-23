@@ -69,10 +69,12 @@ import, review, and publishing into Firestore (doc 03 pipeline).
 | (v1.0) `live` | Realtime room lifecycle — see §6 gate |
 | (v1.1) `tournament` | Bracket lifecycle, deadlines, advancement |
 
-Scheduled jobs (Cloud Scheduler): turn-timeout sweep (hourly), daily-set publish (per
-calendar date, sets published ahead — unlock is per-user local midnight, GDD §5), weekly
-reset (Mon 00:00 Asia/Jerusalem), recalibration (nightly), guest purge (weekly),
-stale-queue sweep (stranger matchmaking, hourly once enabled).
+Scheduled jobs (Cloud Scheduler): turn-timeout / forfeit sweep (**every 15 min** — the 36h
+deadline tolerates coarse granularity, but 15 min keeps the 12h reminder / 30h warning
+windows tight; cost delta is negligible at MVP scale), daily-set publish (per calendar
+date, sets published ahead — unlock is per-user local midnight, GDD §5), weekly reset
+(Mon 00:00 Asia/Jerusalem), recalibration (nightly), guest purge (weekly), stale-queue
+sweep (stranger matchmaking, hourly once enabled).
 
 ---
 

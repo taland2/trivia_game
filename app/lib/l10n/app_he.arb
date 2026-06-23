@@ -95,5 +95,53 @@
   "matchVsOpponent": "מול {opponent}",
   "@matchVsOpponent": {
     "placeholders": { "opponent": { "type": "String" } }
-  }
+  },
+
+  "recapTitle": "סיכום הסבב",
+  "recapYouWonRound": "ניצחת בסבב הזה!",
+  "recapOpponentWonRound": "היריב לקח את הסבב הזה",
+  "recapYou": "את/ה",
+  "recapOpponent": "יריב",
+
+  "matchResultWin": "ניצחת!",
+  "matchResultLoss": "הפסדת",
+  "matchResultWeeklyPoints": "+{points} נקודות שבועיות",
+  "@matchResultWeeklyPoints": {
+    "placeholders": { "points": { "type": "int" } }
+  },
+  "matchResultRematch": "ריאנץ'",
+  "matchResultShare": "שיתוף",
+  "matchResultShareCopied": "התוצאה הועתקה",
+  "matchResultShareText": "ניצחתי {you}–{them} בטריוויה!",
+  "@matchResultShareText": {
+    "placeholders": {
+      "you": { "type": "int" },
+      "them": { "type": "int" }
+    }
+  },
+
+  "settingsTitle": "הגדרות",
+  "settingsLanguage": "שפה",
+  "settingsFeedback": "צליל ומישוש",
+  "settingsSound": "אפקטים קוליים",
+  "settingsHaptics": "רטט",
+
+  "profileMatchHistory": "היסטוריית משחקים",
+  "profileLevelXp": "רמה {level} · {xp} נק׳ ניסיון",
+  "@profileLevelXp": {
+    "placeholders": {
+      "level": { "type": "int" },
+      "xp": { "type": "int" }
+    }
+  },
+
+  "emoteLimitReached": "ניצלת את כל האימוג׳ים במשחק הזה",
+  "emoteLaugh": "חחח",
+  "emoteFire": "אש",
+  "emoteRevenge": "נקמה!",
+  "emoteLucky": "מזל",
+  "emoteWow": "וואו",
+  "emoteClap": "כל הכבוד",
+  "emoteGg": "משחק טוב",
+  "emoteThink": "הממ"
 }

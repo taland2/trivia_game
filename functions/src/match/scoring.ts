@@ -17,7 +17,12 @@ export interface ScoringInput {
 }
 
 export interface ScoringResult {
+  // Total awarded = basePoints + speedBonus (always holds; both are 0 on a miss).
   points: number;
+  // Flat base for the difficulty, awarded for any correct in-time answer.
+  basePoints: number;
+  // Speed bonus on top of the base (decays to 0 at the buzzer). 0 on a miss.
+  speedBonus: number;
   timedOut: boolean;
 }
 
@@ -27,7 +32,7 @@ export function scoreAnswer(input: ScoringInput): ScoringResult {
 
   const timedOut = elapsedMs > timeLimitMs + graceMs;
   if (!correct || timedOut) {
-    return { points: 0, timedOut };
+    return { points: 0, basePoints: 0, speedBonus: 0, timedOut };
   }
 
   // Bonus decays linearly to 0 at the visible buzzer; the grace window earns
@@ -39,5 +44,7 @@ export function scoreAnswer(input: ScoringInput): ScoringResult {
   const points = Math.round(
     basePoints * (1 + speedBonusMax * (timeRemainingMs / timeLimitMs)),
   );
-  return { points, timedOut: false };
+  // The fly-up shows the real split (H6); the server is the only source of truth
+  // for it. points = basePoints + speedBonus is the invariant the client trusts.
+  return { points, basePoints, speedBonus: points - basePoints, timedOut: false };
 }
