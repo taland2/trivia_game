@@ -8,6 +8,9 @@
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
+# The seeders import firebase-admin, which is only installed under functions/.
+# There is no root-level node install, so point Node's module resolver there.
+$env:NODE_PATH = Join-Path $root 'functions\node_modules'
 Push-Location $root
 try {
     Write-Host 'Seeding questions...' -ForegroundColor Cyan

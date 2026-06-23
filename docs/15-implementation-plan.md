@@ -78,6 +78,36 @@ speed bonus visibly varying by answer time.
 > `servingsPrivate` collection). 24 unit tests still green.
 > **To test:** run `scripts/dev.ps1` (starts emulators + adb reverse), then
 > `flutter run --flavor dev -t lib/main_dev.dart`.
+>
+> **2026-06-22 — dev-loop hardening.** Added `scripts/run.ps1` — one command that does
+> the whole on-device loop: pick a Java 21+ runtime → build functions → start emulators
+> (`--only auth,functions,firestore`) → wait for ready → seed → `adb reverse` → `flutter
+> run --flavor dev` → tear emulators down on quit. Notes baked in: (1) Firebase CLI now
+> requires **Java 21+**; the script auto-detects Android Studio's bundled JBR (machine
+> only had JDK 17 at `E:\dev\java\17`). (2) **Pub/Sub emulator is skipped** — it crashed
+> on this machine and is only needed for the scheduled forfeit sweep, not manual play.
+> (3) Seeders import `firebase-admin` from `functions/node_modules` (no root install), so
+> `NODE_PATH` is set; `seed.ps1` updated to match. Common gotcha: plain `flutter run`
+> builds the leftover demo `lib/main.dart` and fails the flavored Gradle build — always
+> pass `--flavor dev -t lib/main_dev.dart`.
+>
+> **2026-06-22 — startup resilience hardening.** The app no longer hard-gates the UI on
+> the backend (it was showing a dead-end `cloud_off` splash with no retry when Firebase
+> was unreachable). Changes: (1) `sessionProvider` now returns **uid-or-null** with
+> per-step timeouts + bounded retry and a best-effort (non-blocking) profile write — it
+> never throws or hangs, so the app always opens, even offline; a null uid degrades
+> gracefully downstream. (2) `app.dart` shows only a brief bounded splash, offers a retry
+> on the (now defensive) error branch, and re-invalidates the session on app resume so
+> regained connectivity revives the backend screens without a restart. (3) New
+> `lib/bootstrap.dart` installs global error handling (`FlutterError.onError`,
+> `PlatformDispatcher.onError`, a calm `ErrorWidget.builder`) and a **guarded
+> `Firebase.initializeApp`** inside `runZonedGuarded`; all three `main_*.dart` route
+> through it. (4) `main_prod`/`main_staging` previously never initialized Firebase and had
+> no options — they now fail *honestly* (caught → degraded open) with a Gate-C TODO to run
+> `flutterfire configure` + add `firebase_options_{prod,staging}.dart`. (5) Deleted the
+> demo `lib/main.dart`. Crashlytics forwarding (TODO in bootstrap) and real connectivity
+> detection (`connectivity_plus` feeding `AsyncValueView.isOffline`) remain **Phase 11**.
+> `flutter analyze` clean, 16 tests green.
 
 ## Phase 2 — Full Round Engine
 *Refs: doc 02 §3, doc 03 §6, doc 08 servings split*
