@@ -29,6 +29,13 @@ const SEED_FRIENDS = [
   { uid: "seed_avi", displayName: "אבי", avatarId: 4 },
 ];
 
+// friendships/{pairId} — pairId is the sorted "{a}_{b}" (doc 08 §2). The real
+// social graph lands in Phase 8; this dev fan-out lets the Phase 7b weekly board
+// rank the seed accounts against each other when they play in the emulator.
+function pairId(a: string, b: string): string {
+  return [a, b].sort().join("_");
+}
+
 async function main(): Promise<void> {
   console.log(`Seeding ${SEED_FRIENDS.length} dev friend profiles...`);
   const batch = db.batch();
@@ -42,8 +49,26 @@ async function main(): Promise<void> {
       createdAt: new Date().toISOString(),
     });
   }
+
+  // Fully connect the seed accounts (each pair → one friendships doc).
+  let edges = 0;
+  for (let i = 0; i < SEED_FRIENDS.length; i++) {
+    for (let j = i + 1; j < SEED_FRIENDS.length; j++) {
+      const a = SEED_FRIENDS[i]!.uid;
+      const b = SEED_FRIENDS[j]!.uid;
+      batch.set(db.collection("friendships").doc(pairId(a, b)), {
+        uids: [a, b].sort(),
+        since: new Date().toISOString(),
+        source: "seed",
+      });
+      edges++;
+    }
+  }
+
   await batch.commit();
-  console.log(`Done! ${SEED_FRIENDS.length} friend profiles written.`);
+  console.log(
+    `Done! ${SEED_FRIENDS.length} friend profiles + ${edges} friendship edges written.`,
+  );
 }
 
 main().catch((err) => {

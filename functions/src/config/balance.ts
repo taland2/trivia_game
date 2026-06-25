@@ -36,6 +36,8 @@ export interface WeeklyBalance {
   scoreDivisor: number;
   // Flat points for winning by opponent forfeit (loser gets none).
   forfeitWinFlat: number;
+  // How many closing weeks to keep in each player's profile history (doc 08 §4).
+  historyWeeks: number;
 }
 
 // XP & level-curve values (GDD §8 ⚖️).
@@ -120,6 +122,7 @@ export const defaultBalance: Balance = {
     matchWinFlat: 100,
     scoreDivisor: 100,
     forfeitWinFlat: 100,
+    historyWeeks: 26, // ~half a year of weekly results kept on the profile (doc 08 §4)
   },
   xp: {
     perCorrect: 2,

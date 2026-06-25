@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as logger from "firebase-functions/logger";
 import { Timestamp } from "firebase-admin/firestore";
 import { getFirestore } from "../firebase.js";
 import {
@@ -18,6 +19,7 @@ import {
   xpForDailyCompletion,
   nextUserXp,
 } from "../economy/grants.js";
+import { fanOutWeeklyBoards, fanOutDailyFriendScore } from "../economy/boards.js";
 import { dailyServingKey } from "./dailyServing.js";
 import { nextStreak } from "./streak.js";
 import { dailyPlayPath, type DailyPlayDoc } from "./types.js";
@@ -164,6 +166,24 @@ export const v1_submitDailyAnswer = onCall(
       writeIdempotent(tx, iref, res, now);
       return res;
     });
+
+    // Post-commit fan-out (GDD §7, doc 08 §2). On daily completion, publish the
+    // player's public friends-today subset and rebuild the weekly friend boards.
+    // Reads-after-writes are forbidden in the txn, so this runs here; best-effort.
+    const dailyResult = (result as { dailyResult?: DailyResult }).dailyResult;
+    if (dailyResult) {
+      const nowDate = now.toDate();
+      await Promise.all([
+        fanOutDailyFriendScore(db, nowDate, dayId, uid, {
+          score: dailyResult.score,
+          correctCount: dailyResult.correctCount,
+          totalMs: dailyResult.totalMs,
+        }),
+        fanOutWeeklyBoards(db, nowDate, [uid]),
+      ]).catch((err) => {
+        logger.error("daily fan-out failed", { dayId, uid, err });
+      });
+    }
 
     return result;
   },

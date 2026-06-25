@@ -44,3 +44,10 @@ export function weekId(date: Date): string {
   const { isoYear, week } = isoWeek(year, month, day);
   return `${isoYear}-W${String(week).padStart(2, "0")}`;
 }
+
+// The week that just CLOSED relative to `date` — used by the Monday reset job to
+// archive the prior week. Subtract 48h so the result lands safely inside the
+// previous Mon–Sun span regardless of the firing time or a DST transition.
+export function previousWeekId(date: Date): string {
+  return weekId(new Date(date.getTime() - 48 * 60 * 60 * 1000));
+}

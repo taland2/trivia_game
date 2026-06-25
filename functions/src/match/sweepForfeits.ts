@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
+import * as logger from "firebase-functions/logger";
 import type { Balance } from "../config/balance.js";
 import {
   applyWeeklyPoints,
@@ -6,6 +7,7 @@ import {
   xpForCompletion,
   nextUserXp,
 } from "../economy/grants.js";
+import { fanOutWeeklyBoards } from "../economy/boards.js";
 import { matchListEntryFor, matchListPath } from "./matchList.js";
 import type { MatchDoc } from "./types.js";
 
@@ -56,32 +58,39 @@ export async function sweepForfeits(
 
   let forfeited = 0;
   for (const doc of snap.docs) {
-    const didForfeit = await forfeitMatchTx(db, doc.id, now, balance);
-    if (didForfeit) forfeited += 1;
+    const winner = await forfeitMatchTx(db, doc.id, now, balance);
+    if (winner) {
+      forfeited += 1;
+      // Post-commit fan-out (GDD §7): only the winner earned points, so rebuild
+      // the winner's friend boards. Best-effort — never fails the sweep.
+      await fanOutWeeklyBoards(db, now.toDate(), [winner]).catch((err) => {
+        logger.error("fanOutWeeklyBoards failed (forfeit)", { matchId: doc.id, err });
+      });
+    }
   }
   return { scanned: snap.size, forfeited };
 }
 
-// Forfeit a single match transactionally. Returns false if a concurrent submit
-// already finished the match or restamped the deadline (the candidate read was
-// stale) — the in-tx re-read of matches/{id} is what guarantees exactly-once: if
-// the player's submit commits first it either finishes the match or pushes the
-// deadline forward, and this retry then bails. If this commits first, the submit
-// hits its own state!=="active" guard.
+// Forfeit a single match transactionally. Returns the winner uid, or null if a
+// concurrent submit already finished the match or restamped the deadline (the
+// candidate read was stale) — the in-tx re-read of matches/{id} is what guarantees
+// exactly-once: if the player's submit commits first it either finishes the match
+// or pushes the deadline forward, and this retry then bails. If this commits
+// first, the submit hits its own state!=="active" guard.
 async function forfeitMatchTx(
   db: FirebaseFirestore.Firestore,
   matchId: string,
   now: Timestamp,
   balance: Balance,
-): Promise<boolean> {
+): Promise<string | null> {
   const matchRef = db.doc(`matches/${matchId}`);
   return db.runTransaction(async (tx) => {
     const matchSnap = await tx.get(matchRef);
-    if (!matchSnap.exists) return false;
+    if (!matchSnap.exists) return null;
     const match = matchSnap.data() as MatchDoc;
 
     const decision = decideForfeit(match, now);
-    if (!decision || match.result) return false;
+    if (!decision || match.result) return null;
     const { winner, loser } = decision;
 
     // Read the winner's user doc before any write (reads precede writes).
@@ -119,6 +128,6 @@ async function forfeitMatchTx(
       { merge: true },
     );
 
-    return true;
+    return winner;
   });
 }

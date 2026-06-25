@@ -13,6 +13,16 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid in players;
     }
 
+    // Friendship edge between two uids (doc 08 §2). pairId is the sorted
+    // "{a}_{b}"; rules can't sort strings, so check both concatenations (only the
+    // canonical one exists). Written by functions only — Phase 8 social graph.
+    function isFriend(a, b) {
+      return request.auth != null && (
+        exists(/databases/$(database)/documents/friendships/$(a + '_' + b)) ||
+        exists(/databases/$(database)/documents/friendships/$(b + '_' + a))
+      );
+    }
+
     // Match state visible to its two players. Carries no unanswered-answer data
     // (doc 08 §2), so live exposure is safe.
     match /matches/{matchId} {
@@ -72,15 +82,35 @@ service cloud.firestore {
     // Daily play record (doc 08 Daily) — id is "{uid}_{dayId}". Owner-readable so
     // Home can show today's played/score state + streak. Function-written only
     // (v1_submitDailyAnswer); no client write. The curated `dailySets/*` stay
-    // denied by the catch-all (GDD §5 — clients never see the set pre-play). The
-    // post-play `daily/{dayId}/friendScores/*` projection lands in Phase 7b.
+    // denied by the catch-all (GDD §5 — clients never see the set pre-play).
     match /dailyPlays/{playId} {
       allow read: if request.auth != null
         && playId.split('_')[0] == request.auth.uid;
     }
 
-    // Everything else (questions bank, servingsPrivate, idempotency, …) stays
-    // denied by this catch-all.
+    // Weekly friends leaderboard projection (GDD §7, doc 08 §2). The board already
+    // contains the viewer's friends' rows, so it is OWNER-readable only. Maintained
+    // by the resolution fan-out (functions) — no client write.
+    match /weekly/{weekId}/boards/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Daily friends-today board (doc 07 §2.4 / doc 08 §2). The owner always reads
+    // their own; a friend may read it ONLY after they have finished today's daily
+    // (GDD §5 anti-spoiler — no anchoring on others' scores before you play). The
+    // exists() guard precedes the get() so a never-played reader doesn't error.
+    match /daily/{dayId}/friendScores/{uid} {
+      allow read: if request.auth != null && (
+        request.auth.uid == uid || (
+          isFriend(request.auth.uid, uid)
+          && exists(/databases/$(database)/documents/dailyPlays/$(request.auth.uid + '_' + dayId))
+          && get(/databases/$(database)/documents/dailyPlays/$(request.auth.uid + '_' + dayId)).data.finishedAt != null
+        )
+      );
+    }
+
+    // Everything else (questions bank, servingsPrivate, idempotency, weekly
+    // scores, dailySets, friendships, …) stays denied by this catch-all.
     match /{document=**} {
       allow read, write: if false;
     }

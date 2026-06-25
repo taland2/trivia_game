@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as logger from "firebase-functions/logger";
 import { Timestamp } from "firebase-admin/firestore";
 import { getFirestore } from "../firebase.js";
 import {
@@ -24,6 +25,7 @@ import {
   xpForCompletion,
   nextUserXp,
 } from "../economy/grants.js";
+import { fanOutWeeklyBoards } from "../economy/boards.js";
 import type { MatchDoc, RoundDoc, RoundPlayerState, RecapDoc } from "./types.js";
 
 // Build the post-reveal recap player payload from a finished round's state.
@@ -348,6 +350,18 @@ export const v1_submitAnswer = onCall({ region: FUNCTIONS_REGION }, async (reque
     writeIdempotent(tx, iref, res, now);
     return res;
   });
+
+  // Post-commit fan-out (GDD §7): weekly points are awarded only on match
+  // resolution, so rebuild the friend boards just for the two players. Reads after
+  // writes are forbidden inside the transaction, so this runs here. Best-effort —
+  // a failure never fails the submit; the next award rebuilds the board.
+  const matchResult = (result as { matchResult?: MatchResult }).matchResult;
+  if (matchResult) {
+    const affected = Object.keys(matchResult.weeklyPointsAwarded ?? {});
+    await fanOutWeeklyBoards(db, now.toDate(), affected).catch((err) => {
+      logger.error("fanOutWeeklyBoards failed (submitAnswer)", { matchId, err });
+    });
+  }
 
   return result;
 });

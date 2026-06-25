@@ -15,5 +15,6 @@ export {
 } from "./match/strangerQueue.js";
 export { v1_startDaily } from "./daily/startDaily.js";
 export { v1_submitDailyAnswer } from "./daily/submitDailyAnswer.js";
-// Scheduled job — wired but NOT deployed until Phase 7 (Blaze). See the file header.
+// Scheduled jobs — wired but NOT deployed until the Blaze step. See file headers.
 export { scheduledForfeitSweep } from "./jobs/scheduledForfeitSweep.js";
+export { scheduledWeeklyReset } from "./jobs/scheduledWeeklyReset.js";

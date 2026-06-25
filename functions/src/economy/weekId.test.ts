@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { weekId } from "./weekId.js";
+import { weekId, previousWeekId } from "./weekId.js";
 
 // All instants are UTC; weekId resolves them in Asia/Jerusalem then to ISO week.
 describe("weekId (GDD §7, ISO week, Asia/Jerusalem)", () => {
@@ -33,5 +33,22 @@ describe("weekId (GDD §7, ISO week, Asia/Jerusalem)", () => {
   it("handles a winter (IST, UTC+2) date correctly", () => {
     // 2026-01-15 is a Thursday → ISO week 3 of 2026.
     expect(weekId(new Date("2026-01-15T10:00:00Z"))).toBe("2026-W03");
+  });
+});
+
+describe("previousWeekId (Monday-reset closing week)", () => {
+  it("returns the week that just closed at the Monday boundary", () => {
+    // Reset fires Mon 2026-06-22 00:00 local (W26) → closes W25.
+    expect(previousWeekId(new Date("2026-06-21T21:30:00Z"))).toBe("2026-W25");
+  });
+
+  it("stays in the prior week even if the job fires hours late", () => {
+    // Monday mid-morning local is still in the new week; closing is W25.
+    expect(previousWeekId(new Date("2026-06-22T08:00:00Z"))).toBe("2026-W25");
+  });
+
+  it("crosses the year boundary correctly", () => {
+    // Mon 2025-12-29 starts ISO W01 of 2026 → closes 2025-W52.
+    expect(previousWeekId(new Date("2025-12-29T12:00:00Z"))).toBe("2025-W52");
   });
 });

@@ -601,6 +601,42 @@ end-to-end on the emulator; daily streak and the weekly **podium** visible in th
 friends-today board appears only after you've played. *(Blaze deploy + real scheduled-job
 firing remain a dedicated later step — see decision 2.)*
 
+> **2026-06-25 — Phase 7b split into 7b-1 (backend ✅) + 7b-2 (UI, next).** Per the
+> 4a/4b · 6a/6b cadence (user decision). **7b-1 backend is complete; proven by the
+> emulator suite.**
+> **Projections (GDD §7, doc 08 §2):** new `economy/boards.ts` — pure `buildBoardRows`
+> (rank desc by points, tiebreak level then uid), `friendsOf` (`friendships/*`
+> `array-contains` query), `fanOutWeeklyBoards` (per-viewer: each award recipient ∪ their
+> friends → rebuild `weekly/{weekId}/boards/{viewer}` from each member's weekly score +
+> profile), and `fanOutDailyFriendScore` (the player's own `daily/{dayId}/friendScores/{uid}`
+> public subset — no question content). Contract `api_contract/src/board.ts`
+> (`LeaderboardRow`/`WeeklyBoard`/`FriendScore`).
+> **Wiring (post-commit, best-effort):** Firestore forbids the reads-after-writes a
+> projection needs inside a txn and no trigger is deployed, so fan-out runs AFTER the
+> resolution transaction commits in `submitAnswer` (match finish → both players),
+> `sweepForfeits` (forfeit → winner; `forfeitMatchTx` now returns the winner uid), and
+> `submitDailyAnswer` (10th answer → friendScore + board). A failed fan-out logs and never
+> fails the callable (the next award rebuilds).
+> **Monday reset:** pure `economy/rollWeek.ts` — archives each viewer's own closing-week
+> board row into `users/{uid}.weeklyHistory` (capped ⚖️ `weekly.historyWeeks=26`), guarded
+> by a `weekly/{closingWeekId}.rolledAt` marker (re-run = no-op); new weekId starts empty
+> (lazy). `weekId.ts` gains `previousWeekId` (−48h, DST-safe). `jobs/scheduledWeeklyReset.ts`
+> (`onSchedule`, Mon 00:00 Asia/Jerusalem) **wired, NOT deployed** (Blaze deferred — decision
+> 2); the suite drives `rollWeek` directly.
+> **Rules:** `weekly/{weekId}/boards/{uid}` owner-read (board already holds friends' rows);
+> `daily/{dayId}/friendScores/{uid}` owner-read + friend-read gated on the reader having
+> *finished* today's daily (`isFriend` helper + `dailyPlays` `finishedAt` precondition, GDD
+> §5 anti-spoiler). Both function-written.
+> **Dev data:** `seed-friends.ts` now writes a fully-connected `friendships/*` graph among
+> the seed accounts; new `seed-friendships.ts --uid <guest>` links the on-device guest.
+> **Tests:** 76 functions unit (+10: `buildBoardRows`, path helpers, `previousWeekId`) +
+> **71 emulator** (+18: 3 boards integration — duel fan-out ranks, daily friendScore +
+> board, `rollWeek` archive/idempotent; +6 rules — board owner-only, friendScore
+> owner/friend-post-play/not-played/non-friend). `tsc`, ESLint, `flutter analyze` (app
+> untouched) clean.
+> **7b-2 (next):** Dart models, weekly board provider/screen, podium, Home weekly card,
+> daily-result friends board, l10n, widget tests.
+
 ## Phase 8 — Identity & Friends
 *Refs: doc 05 §1, doc 02 §10.1, doc 07 §2.1/§4*
 

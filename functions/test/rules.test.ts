@@ -60,6 +60,10 @@ beforeEach(async () => {
     await setDoc(doc(db, "servingsPrivate/m1_0_0_uidA"), { correctIx: 2 });
     await setDoc(doc(db, `dailyPlays/${A}_2026-06-24`), { uid: A, score: 100 });
     await setDoc(doc(db, "dailySets/2026-06-24"), { questionIds: { he: [] } });
+    // Phase 7b: A and B are friends; A has a weekly board + a daily friendScore.
+    await setDoc(doc(db, `friendships/${[A, B].sort().join("_")}`), { uids: [A, B].sort() });
+    await setDoc(doc(db, "weekly/2026-W26/boards", A), { rows: [], updatedAt: "2026-06-22T00:00:00.000Z" });
+    await setDoc(doc(db, "daily/2026-06-24/friendScores", A), { uid: A, score: 100 });
   });
 });
 
@@ -144,6 +148,72 @@ describe("daily challenge (GDD §5)", () => {
   it("the curated dailySets are denied to all clients (no pre-play peek)", async () => {
     await assertFails(
       getDoc(doc(env.authenticatedContext(A).firestore(), "dailySets/2026-06-24")),
+    );
+  });
+});
+
+describe("weekly board (GDD §7, Phase 7b)", () => {
+  it("is owner-readable only — denied to friends, others and anon", async () => {
+    await assertSucceeds(
+      getDoc(doc(env.authenticatedContext(A).firestore(), "weekly/2026-W26/boards", A)),
+    );
+    await assertFails(
+      getDoc(doc(env.authenticatedContext(B).firestore(), "weekly/2026-W26/boards", A)),
+    );
+    await assertFails(
+      getDoc(doc(env.unauthenticatedContext().firestore(), "weekly/2026-W26/boards", A)),
+    );
+  });
+
+  it("is never client-writable", async () => {
+    await assertFails(
+      setDoc(doc(env.authenticatedContext(A).firestore(), "weekly/2026-W26/boards", A), {
+        rows: [], updatedAt: "x",
+      }),
+    );
+  });
+});
+
+describe("daily friends-today board (GDD §5 anti-spoiler, Phase 7b)", () => {
+  const day = "2026-06-24";
+
+  it("is always readable by the owner", async () => {
+    await assertSucceeds(
+      getDoc(doc(env.authenticatedContext(A).firestore(), "daily", day, "friendScores", A)),
+    );
+  });
+
+  it("a friend who has finished today's daily may read it", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `dailyPlays/${B}_${day}`), {
+        uid: B, finishedAt: new Date(),
+      });
+    });
+    await assertSucceeds(
+      getDoc(doc(env.authenticatedContext(B).firestore(), "daily", day, "friendScores", A)),
+    );
+  });
+
+  it("a friend who has NOT finished today is denied (no anchoring)", async () => {
+    // B has a started-but-unfinished play → finishedAt is null.
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `dailyPlays/${B}_${day}`), {
+        uid: B, finishedAt: null,
+      });
+    });
+    await assertFails(
+      getDoc(doc(env.authenticatedContext(B).firestore(), "daily", day, "friendScores", A)),
+    );
+  });
+
+  it("a non-friend is denied even after playing", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `dailyPlays/${C}_${day}`), {
+        uid: C, finishedAt: new Date(),
+      });
+    });
+    await assertFails(
+      getDoc(doc(env.authenticatedContext(C).firestore(), "daily", day, "friendScores", A)),
     );
   });
 });
