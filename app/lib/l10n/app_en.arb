@@ -20,6 +20,21 @@
   "homeEmptyBody": "Invite a friend and start playing",
   "homeEmptyCta": "Start a duel",
 
+  "dailyCardPlay": "10 questions · play now",
+  "dailyCardDone": "Played today · {score} pts",
+  "@dailyCardDone": {
+    "placeholders": { "score": { "type": "int" } }
+  },
+  "dailyResultTitle": "Daily complete!",
+  "dailyResultStreak": "{count}-day streak",
+  "@dailyResultStreak": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "dailyShareText": "I scored {score} on today's Trivia daily 🔥 beat me",
+  "@dailyShareText": {
+    "placeholders": { "score": { "type": "int" } }
+  },
+
   "playTitle": "Play",
   "playStartDuel": "New duel",
   "playStartDuelSubtitle": "Pick a friend and a category mode",

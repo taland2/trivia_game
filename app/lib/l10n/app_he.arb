@@ -20,6 +20,21 @@
   "homeEmptyBody": "הזמן חבר והתחילו לשחק",
   "homeEmptyCta": "התחל דו-קרב",
 
+  "dailyCardPlay": "10 שאלות · שחק עכשיו",
+  "dailyCardDone": "שיחקת היום · {score} נק׳",
+  "@dailyCardDone": {
+    "placeholders": { "score": { "type": "int" } }
+  },
+  "dailyResultTitle": "האתגר היומי הושלם!",
+  "dailyResultStreak": "רצף של {count} ימים",
+  "@dailyResultStreak": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "dailyShareText": "צברתי {score} נקודות באתגר היומי של טריוויה 🔥 נסו לנצח אותי",
+  "@dailyShareText": {
+    "placeholders": { "score": { "type": "int" } }
+  },
+
   "playTitle": "משחק",
   "playStartDuel": "דו-קרב חדש",
   "playStartDuelSubtitle": "בחר חבר ומצב קטגוריה",

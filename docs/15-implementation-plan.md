@@ -480,15 +480,126 @@ the EN locale is Hebrew-free on the question screen; review docs drift reconcile
 > indexes/`rand`, Flutter golden-path E2E, opponent-side create cap) remain Phase 10/12 gates.
 
 ## Phase 7 — Daily, Streaks, Weekly Race, XP (full stack)
-*Refs: doc 02 §5, §7–8, doc 08 weekly/daily collections*
+*Refs: doc 02 §5, §7–8, doc 08 weekly/daily collections, doc 07 §2.3*
 
-Daily sets + per-user local-midnight unlock (±14h window) · one-attempt + streak logic ·
-friends-today board (post-play visibility rule) · weekly leaderboard projections +
-Monday reset job + podium screen · XP bar / level ring UI. **First real deploy to
-`trivia-dev` (Blaze upgrade)** — scheduled jobs need a real project; verify cost ≈ $0.
+> **2026-06-24 — Phase 7 planning (user decisions):**
+> 1. **Split into 7a + 7b** (matches 4a/4b, 6a/6b). 7a = Daily Challenge full stack +
+>    streaks, ending playable on device. 7b = weekly friend-ranked board projection +
+>    Monday reset job + podium UI + the daily friends-today board.
+> 2. **Blaze deploy deferred — simulate now.** The scheduled jobs (Monday reset, and the
+>    already-wired forfeit sweep) are emulator-driven for the exit checkpoint, exactly as
+>    4b drove `sweepForfeits` directly. The actual `trivia-dev` Blaze upgrade + $10 budget
+>    alert + real deploy move to a **dedicated step** (do it alongside Phase 9, where FCM
+>    also forces a real project — one billing/deploy session instead of two). Dev loop stays
+>    emulators-only and $0.
+> 3. **Full friend-ranked board, tested against seeded friendships.** Build the real
+>    `boards/{uid}` fan-out projection now; test it against `scripts/seed-friends.ts` dev
+>    friendships. No throwaway self-only stage — the logic lights up for real when Phase 8
+>    lands the live friend graph.
+> 4. **Daily sets = deterministic picker from the dev-seed bank.** A seeding script builds
+>    `dailySets/{dayId}` (3E+4M+3H, category-rotating, `dayId`-seeded so it's reproducible)
+>    from the existing 120/lang dev-seed bank, both languages. The real curation queue +
+>    OpenTDB importer stay Phase 10.
+>
+> **Already done (lowers scope):** the economy *write-side* is real since 4b — weekly
+> `scores/{uid}` raw buckets + XP/level grants fold into the submit transaction — and the
+> profile level ring / XP bar UI shipped in 6b. Phase 7 adds the daily stack, the weekly
+> *projection + reset*, the podium, and the daily friends board on top of that base.
 
-**Exit checkpoint:** a day-rollover and a week-rollover both simulated end-to-end; daily
-streak and weekly podium visible in UI.
+### Phase 7a — Daily Challenge + Streaks (playable)
+*Refs: doc 02 §5, §8; doc 07 §2.3; doc 08 daily collections*
+
+- **Daily set seeding:** `scripts/seed-daily.ts` builds `dailySets/{dayId}` =
+  `{questionIds[10], publishAt}` by deterministically picking 3E+4M+3H from the dev-seed
+  bank (`dayId`-seeded RNG, category rotation per GDD §5), per language. Idempotent like the
+  question seeder; seeds a ±N-day window around today so rollover is testable.
+- **`v1_startDaily({dayId})`** (doc 07 §2.3): validate `dayId` within ±14h of server time
+  (`invalid-argument/day-out-of-window`); reject if `dailyPlays/{uid}_{dayId}` exists
+  (`failed-precondition/daily-already-played`); serve 10 questions reusing the
+  `roundServing`/`servingsPrivate` machinery (serving context `{type:"daily",dayId}`, key
+  `daily_${dayId}_${qIx}_${uid}`), order locked per user. Returns `{dailyId, servings[10]}`.
+- **`v1_submitDailyAnswer`** (same request shape as `v1_submitAnswer`): server-authoritative
+  timing, idempotency key, scoring per §3.3; records into `dailyPlays/{uid}_{dayId}`
+  (`{score, correctCount, totalMs, finishedAt, streakAfter}`). Grants fold into one
+  transaction: +2 XP/correct each submit, **+25 XP daily completion** on the 10th, and
+  weekly points `dailyScore / scoreDivisor` → `applyWeeklyPoints(key:"dailies")`. The 10th
+  answer returns `{dailyResult, streak}`.
+- **Streak logic (§5):** pure `nextStreak(prev, dayId)` module — consecutive *calendar days
+  played* (not won); increments if `dayId` is the day after `streak.lastDayId`, resets to 1
+  on a gap, no-op if same day. Writes `users/{uid}.streak {count, lastDayId}` in the
+  completion transaction. Unit-tested across increment / reset / same-day / first-ever.
+- **Balance (⚖️ → `balance.ts`):** `daily.composition` `[E,E,E,M,M,M,M,H,H,H]`,
+  `daily.windowMs` (±14h), `xp.dailyCompleted` (25). No daily number inlined.
+- **Contract:** `packages/api_contract/src/daily.ts` — `StartDailyRequest/Response`,
+  `SubmitDailyAnswer*` (reuse submit shapes), `DailyResultSchema`, `StreakSchema`.
+- **Client:** Home daily card placeholder → real (today's state: not-played / done +
+  streak); Daily screen reuses the Phase-5 question widgets across 10 Qs; daily result
+  screen with score + streak flame + **share card** (clipboard text, **no question content**
+  per the §5 anti-spoiler rule); one-attempt lockout state.
+- **Rules:** `dailySets/*` stays default-deny (no client access). `dailyPlays/*` owner-read.
+
+  **Exit checkpoint (7a):** play today's daily end-to-end on a device — 10 questions, score
+  comes back **from the server**, streak increments; a second attempt the same day is blocked;
+  a `dayId` outside ±14h is rejected. Day-rollover testable by seeding adjacent `dayId`s.
+
+  > **2026-06-24 — Phase 7a ✅ complete.**
+  > **Backend:** `daily/` module — `v1_startDaily` (±14h window via pure `isDayIdInWindow`,
+  > one-attempt lockout, idempotent resume from `servingsPrivate`, language-keyed set) and
+  > `v1_submitDailyAnswer` (server-timed scoring, idempotency-guarded, sequential-answer guard;
+  > the 10th answer grants +25 completion XP + `dailies` weekly points and advances the streak,
+  > returning `{dailyResult, streak}`). Pure `nextStreak` (consecutive days played) + `dayId`
+  > helpers. `dailyServing.ts` mirrors the duel's per-player shuffle (key `daily_{dayId}_{qIx}_
+  > {uid}`); `dailyPlays/{uid}_{dayId}` tracks progress + result. New ⚖️ in `balance.ts`:
+  > `daily.composition` (3E+4M+3H), `daily.windowMs` (±14h), `xp.dailyCompleted` (25). Economy
+  > grants extended (`weeklyPointsForDaily`, `xpForDailyCompletion`). Contract
+  > `api_contract/src/daily.ts` + `daily-unavailable` reason. `firestore.rules`: `dailyPlays`
+  > owner-read / no client write; `dailySets` stay sealed by the catch-all (no pre-play peek).
+  > **Daily set sourcing:** `scripts/seed-daily.ts` — deterministic `dayId`-seeded picker over
+  > the dev-seed bank, both languages, ±10..+3-day window; wired into `seed.ps1` + `run.ps1`.
+  > **Client:** Home daily card (real played/score + 🔥 streak, taps into the flow);
+  > `DailyScreen` reuses the Phase-5 `QuestionScreen` across 10 Qs; `DailyResultScreen` (score,
+  > accuracy, streak flame, weekly points, spoiler-free clipboard share). `DailyApi` behind a
+  > provider (testable). `users/{uid}.streak` surfaced via `UserProfile.streakCount`. New route
+  > `/daily` (full-screen, no tab bar). l10n keys added HE+EN.
+  > **Tests:** 66 functions unit (+10: `dayId`/`isDayIdInWindow`/`nextStreak`) + 20 contract +
+  > **62 emulator** (+7 daily integration: full 10-Q flow + grants, window reject, one-attempt,
+  > resume idempotency, out-of-order, streak increment, idempotent replay; +2 daily rules) +
+  > 17 Flutter widget (+1 daily-screen: result renders from the server projection).
+  > `flutter analyze`, `tsc`, ESLint all clean.
+
+### Phase 7b — Weekly Race + Podium + Daily Friends Board
+*Refs: doc 02 §7; doc 08 weekly/daily projections; doc 07 §2.4*
+
+- **`boards/{uid}` friend-ranked projection (§7, doc 08):** on every award (the submit/sweep
+  match resolution **and** daily completion), fan out to each affected player + their
+  friends: read `friendsOf(uid)` from `friendships/*`, recompute that viewer's
+  `weekly/{weekId}/boards/{uid}` = `{rows:[{uid,name,avatarId,level,points,rank}], updatedAt}`
+  sorted desc with rank. Bounded by friend count (doc 06 §10 — one listened doc per user).
+  Pure ranking/tiebreak helper, unit-tested; fan-out wired into the existing resolution
+  transaction's post-commit step (reads forbidden mid-txn → fan-out runs after commit).
+- **Daily friends-today board:** `daily/{dayId}/friendScores/{uid}` projection (public subset
+  of `dailyPlays`), fanned out on daily completion. `firestore.rules`: readable by the owner
+  and their friends **only after the reader has played** (`playedAt` precondition, doc 07
+  §2.4 / doc 08) — no spoilers/anchoring.
+- **Monday reset job:** pure `rollWeek(now)` module (ISO week, Asia/Jerusalem) — archives the
+  closing week into per-user profile history (last ⚖️ 26 weeks, doc 08 §4) and lets the new
+  `weekId` start empty (lazy-created on first award). `scheduledWeeklyReset` (`jobs/`,
+  `onSchedule`, Mon 00:00 Asia/Jerusalem) **wired but not deployed** (Blaze deferred per the
+  decision above); the emulator suite drives `rollWeek` directly. End-of-week podium
+  notification copy is stubbed (real send = Phase 9).
+- **Client:** weekly leaderboard screen (one listened `boards/{uid}` doc) with the friends
+  race; **podium screen** (top-3 celebration, reduced-motion aware, reuses Phase-5 juice);
+  Home weekly card placeholder → real (my rank + top friend). Daily friends-today board
+  rendered on the 7a daily result screen (post-play).
+- **Tests:** award fan-out updates each friend's board + ranking/tiebreak; `daily/friendScores`
+  hidden pre-play / visible post-play (rules matrix); `rollWeek` archives + resets across a
+  simulated Monday boundary; daily completion writes both `friendScores` and the weekly
+  `dailies` bucket. Test against `scripts/seed-friends.ts` graph.
+
+**Exit checkpoint (7b):** a **day-rollover** and a **week-rollover** both simulated
+end-to-end on the emulator; daily streak and the weekly **podium** visible in the UI; the
+friends-today board appears only after you've played. *(Blaze deploy + real scheduled-job
+firing remain a dedicated later step — see decision 2.)*
 
 ## Phase 8 — Identity & Friends
 *Refs: doc 05 §1, doc 02 §10.1, doc 07 §2.1/§4*
@@ -557,7 +668,7 @@ operating period, not a build phase).
 | Risk | Plan |
 |---|---|
 | **iOS builds need macOS** — dev machine is Windows | Develop Android-first locally; add iOS via CI macOS runner (GitHub Actions + fastlane) or Codemagic free tier at Phase 12; budget an extra session for iOS-only issues (sign-in with Apple, APNs, universal links) |
-| Blaze plan required from Phase 7 | Budget alert at $10 configured the same day; emulators remain the default dev loop forever |
+| Blaze plan needed for scheduled jobs | Deploy deferred from Phase 7 to a dedicated step alongside Phase 9 (FCM forces a real project too — see Phase 7 decision 2). Budget alert at $10 configured the same day; emulators remain the default dev loop forever |
 | Content review fatigue (Phase 10) | Review CLI UX is a first-class deliverable; track approved-count in this doc per session |
 | Walking skeleton accumulates "temporary" shortcuts | Each phase's DoD includes deleting the shortcuts it replaced; `dev-seed` content purge is an explicit Phase 10 item |
 
@@ -574,7 +685,8 @@ operating period, not a build phase).
 | 6a — App shell (tabs/Home/duel loop) | ✅ | 2026-06-21 | 03880d7 |
 | 6a review remediation — WS1 (integrity/idempotency) | ✅ | 2026-06-21 | 8b98aec |
 | 6b — Duel loop complete + WS2/WS3/WS4 | ✅ | 2026-06-23 | (this commit) |
-| 7 — Daily/weekly/XP | ☐ | | |
+| 7a — Daily Challenge + streaks | ✅ | 2026-06-24 | (this commit) |
+| 7b — Weekly race + podium + daily board | ☐ | | |
 | 8 — Identity & friends | ☐ | | |
 | 9 — Notifications | ☐ | | |
 | 10 — Content (parallel) | ☐ | | |

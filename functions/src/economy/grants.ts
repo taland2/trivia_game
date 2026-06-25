@@ -31,6 +31,11 @@ export function weeklyPointsForForfeitWin(b: Balance): number {
   return b.weekly.forfeitWinFlat;
 }
 
+// Daily challenge: score bonus only, same divisor as duels (GDD §7).
+export function weeklyPointsForDaily(dailyScore: number, b: Balance): number {
+  return Math.round(dailyScore / b.weekly.scoreDivisor);
+}
+
 // --- XP & level (GDD §8) -------------------------------------------------------
 
 export function xpForSubmit(correct: boolean, b: Balance): number {
@@ -40,6 +45,11 @@ export function xpForSubmit(correct: boolean, b: Balance): number {
 // Completed match: base for both players, plus the win bonus for the winner.
 export function xpForCompletion(isWinner: boolean, b: Balance): number {
   return b.xp.matchCompleted + (isWinner ? b.xp.matchWin : 0);
+}
+
+// Completed daily challenge (GDD §8 — flat, on the 10th answer).
+export function xpForDailyCompletion(b: Balance): number {
+  return b.xp.dailyCompleted;
 }
 
 // Level for a given total XP. Inverts "XP to reach level n = base × n^exponent":

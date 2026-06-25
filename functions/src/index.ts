@@ -13,5 +13,7 @@ export {
   v1_joinStrangerQueue,
   v1_leaveStrangerQueue,
 } from "./match/strangerQueue.js";
+export { v1_startDaily } from "./daily/startDaily.js";
+export { v1_submitDailyAnswer } from "./daily/submitDailyAnswer.js";
 // Scheduled job — wired but NOT deployed until Phase 7 (Blaze). See the file header.
 export { scheduledForfeitSweep } from "./jobs/scheduledForfeitSweep.js";

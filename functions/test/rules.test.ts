@@ -58,6 +58,8 @@ beforeEach(async () => {
     await setDoc(doc(db, "users", A, "matchList", "m1"), { opponentUid: B });
     await setDoc(doc(db, "questions/q1"), { text: "secret" });
     await setDoc(doc(db, "servingsPrivate/m1_0_0_uidA"), { correctIx: 2 });
+    await setDoc(doc(db, `dailyPlays/${A}_2026-06-24`), { uid: A, score: 100 });
+    await setDoc(doc(db, "dailySets/2026-06-24"), { questionIds: { he: [] } });
   });
 });
 
@@ -125,6 +127,23 @@ describe("function-only collections stay sealed", () => {
     await assertFails(getDoc(doc(env.authenticatedContext(A).firestore(), "questions/q1")));
     await assertFails(
       getDoc(doc(env.authenticatedContext(A).firestore(), "servingsPrivate/m1_0_0_uidA")),
+    );
+  });
+});
+
+describe("daily challenge (GDD §5)", () => {
+  it("dailyPlays is owner-readable only, never client-writable", async () => {
+    const id = `${A}_2026-06-24`;
+    await assertSucceeds(getDoc(doc(env.authenticatedContext(A).firestore(), "dailyPlays", id)));
+    await assertFails(getDoc(doc(env.authenticatedContext(B).firestore(), "dailyPlays", id)));
+    await assertFails(
+      setDoc(doc(env.authenticatedContext(A).firestore(), "dailyPlays", id), { score: 9999 }),
+    );
+  });
+
+  it("the curated dailySets are denied to all clients (no pre-play peek)", async () => {
+    await assertFails(
+      getDoc(doc(env.authenticatedContext(A).firestore(), "dailySets/2026-06-24")),
     );
   });
 });

@@ -69,6 +69,16 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Daily play record (doc 08 Daily) — id is "{uid}_{dayId}". Owner-readable so
+    // Home can show today's played/score state + streak. Function-written only
+    // (v1_submitDailyAnswer); no client write. The curated `dailySets/*` stay
+    // denied by the catch-all (GDD §5 — clients never see the set pre-play). The
+    // post-play `daily/{dayId}/friendScores/*` projection lands in Phase 7b.
+    match /dailyPlays/{playId} {
+      allow read: if request.auth != null
+        && playId.split('_')[0] == request.auth.uid;
+    }
+
     // Everything else (questions bank, servingsPrivate, idempotency, …) stays
     // denied by this catch-all.
     match /{document=**} {

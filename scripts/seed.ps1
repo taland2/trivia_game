@@ -19,6 +19,9 @@ try {
     Write-Host 'Seeding friend profiles...' -ForegroundColor Cyan
     npx tsx scripts/seed-friends.ts
 
+    Write-Host 'Seeding daily sets...' -ForegroundColor Cyan
+    npx tsx scripts/seed-daily.ts
+
     Write-Host 'Seed complete.' -ForegroundColor Green
 } finally {
     Pop-Location

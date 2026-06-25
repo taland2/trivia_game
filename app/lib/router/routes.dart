@@ -18,6 +18,9 @@ abstract class Routes {
   static String match(String matchId) => '/match/$matchId';
   static const matchPattern = '/match/:matchId';
 
+  // Full-screen daily-challenge play flow on the root navigator (no tab bar).
+  static const daily = '/daily';
+
   // Named routes for go() / pushNamed where useful.
   static const nameHome = 'home';
   static const namePlay = 'play';
@@ -27,4 +30,5 @@ abstract class Routes {
   static const nameCategoryMode = 'categoryMode';
   static const nameSettings = 'settings';
   static const nameMatch = 'match';
+  static const nameDaily = 'daily';
 }

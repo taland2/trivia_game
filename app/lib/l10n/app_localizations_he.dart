@@ -57,6 +57,27 @@ class AppLocalizationsHe extends AppLocalizations {
   String get homeEmptyCta => 'התחל דו-קרב';
 
   @override
+  String get dailyCardPlay => '10 שאלות · שחק עכשיו';
+
+  @override
+  String dailyCardDone(int score) {
+    return 'שיחקת היום · $score נק׳';
+  }
+
+  @override
+  String get dailyResultTitle => 'האתגר היומי הושלם!';
+
+  @override
+  String dailyResultStreak(int count) {
+    return 'רצף של $count ימים';
+  }
+
+  @override
+  String dailyShareText(int score) {
+    return 'צברתי $score נקודות באתגר היומי של טריוויה 🔥 נסו לנצח אותי';
+  }
+
+  @override
   String get playTitle => 'משחק';
 
   @override

@@ -57,6 +57,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeEmptyCta => 'Start a duel';
 
   @override
+  String get dailyCardPlay => '10 questions · play now';
+
+  @override
+  String dailyCardDone(int score) {
+    return 'Played today · $score pts';
+  }
+
+  @override
+  String get dailyResultTitle => 'Daily complete!';
+
+  @override
+  String dailyResultStreak(int count) {
+    return '$count-day streak';
+  }
+
+  @override
+  String dailyShareText(int score) {
+    return 'I scored $score on today\'s Trivia daily 🔥 beat me';
+  }
+
+  @override
   String get playTitle => 'Play';
 
   @override

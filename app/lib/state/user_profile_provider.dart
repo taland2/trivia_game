@@ -14,6 +14,7 @@ class UserProfile {
     required this.level,
     required this.levelFloorXp,
     required this.levelCeilXp,
+    required this.streakCount,
   });
 
   final String displayName;
@@ -22,6 +23,9 @@ class UserProfile {
   final int level;
   final int levelFloorXp;
   final int levelCeilXp;
+
+  /// Daily streak — consecutive days played (GDD §5), function-written.
+  final int streakCount;
 
   /// Fraction through the current level (0..1). 0 when boundaries aren't set yet
   /// (a brand-new guest who has earned no XP).
@@ -38,6 +42,7 @@ class UserProfile {
         level: (m['level'] as num?)?.toInt() ?? 1,
         levelFloorXp: (m['levelFloorXp'] as num?)?.toInt() ?? 0,
         levelCeilXp: (m['levelCeilXp'] as num?)?.toInt() ?? 0,
+        streakCount: ((m['streak'] as Map?)?['count'] as num?)?.toInt() ?? 0,
       );
 }
 

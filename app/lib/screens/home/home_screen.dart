@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/match_list_entry.dart';
 import '../../router/routes.dart';
+import '../../state/daily_providers.dart';
 import '../../state/match_list_providers.dart';
+import '../../state/user_profile_provider.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/async_value_view.dart';
 import '../../widgets/empty_state.dart';
@@ -64,17 +66,31 @@ class _HomeBody extends StatelessWidget {
   }
 }
 
-/// Phase 7 placeholder.
-class _DailyChallengeCard extends StatelessWidget {
+/// Daily Challenge entry (GDD §5): shows today's state (play CTA or done + score)
+/// and the current streak, and routes into the full-screen daily flow.
+class _DailyChallengeCard extends ConsumerWidget {
   const _DailyChallengeCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    return _PlaceholderCard(
-      icon: Icons.today,
-      title: l.homeDailyCardTitle,
-      subtitle: l.homeDailyCardSoon,
+    final today = ref.watch(dailyTodayProvider).valueOrNull ?? DailyToday.none;
+    final streak = ref.watch(userProfileProvider).valueOrNull?.streakCount ?? 0;
+
+    final subtitle = today.played
+        ? l.dailyCardDone(today.score)
+        : l.dailyCardPlay;
+
+    return Card(
+      child: ListTile(
+        leading: Icon(Icons.today, color: Theme.of(context).colorScheme.primary),
+        title: Text(l.homeDailyCardTitle),
+        subtitle: Text(subtitle),
+        trailing: streak > 0
+            ? Text('🔥 $streak', style: const TextStyle(fontSize: 16))
+            : const Icon(Icons.chevron_right),
+        onTap: () => context.push(Routes.daily),
+      ),
     );
   }
 }

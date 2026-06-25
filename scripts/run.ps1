@@ -95,11 +95,12 @@ try {
     Write-Host '  Auth :9099, Functions :5001, Firestore :8088 ready' -ForegroundColor Green
 
     # --- 5. Seed data (idempotent) -----------------------------------------
-    Write-Step 'Seeding questions + dev friends'
+    Write-Step 'Seeding questions + dev friends + daily sets'
     $env:NODE_PATH = Join-Path $root 'functions\node_modules'
     Push-Location $root
     npx tsx scripts/seed-questions.ts
     npx tsx scripts/seed-friends.ts
+    npx tsx scripts/seed-daily.ts
     Pop-Location
 
     # --- 6. adb reverse (phone -> this PC) ----------------------------------

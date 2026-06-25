@@ -48,5 +48,6 @@ export const ErrorReasonSchema = z.enum([
   "match",
   "user",
   "invite-code",
+  "daily-unavailable",
 ]);
 export type ErrorReason = z.infer<typeof ErrorReasonSchema>;

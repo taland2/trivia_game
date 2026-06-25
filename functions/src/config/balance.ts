@@ -46,6 +46,20 @@ export interface XpBalance {
   matchCompleted: number;
   // Bonus XP for the match winner, on top of matchCompleted.
   matchWin: number;
+  // XP for completing the daily challenge (GDD §8 — +25).
+  dailyCompleted: number;
+}
+
+// Daily Challenge balance (GDD §5 ⚖️).
+export interface DailyBalance {
+  // Question composition for the daily set, in serve order. Length = the daily's
+  // question count (GDD §5 — 3 Easy + 4 Medium + 3 Hard = 10). The curation/seed
+  // step builds each dailySet to this spec; the serve/submit path reads the count.
+  composition: Difficulty[];
+  // Sanity window for the client-claimed local `dayId` (GDD §5): the server accepts
+  // a dayId whose UTC day-span is within ±windowMs of the server instant, covering
+  // every legitimate device timezone (UTC-12 .. UTC+14). ±14h.
+  windowMs: number;
 }
 
 export interface LevelCurveBalance {
@@ -80,6 +94,7 @@ export interface Balance {
   xp: XpBalance;
   levelCurve: LevelCurveBalance;
   emotes: EmoteBalance;
+  daily: DailyBalance;
 }
 
 // GDD §3.2 / §3.3 initial values.
@@ -110,6 +125,7 @@ export const defaultBalance: Balance = {
     perCorrect: 2,
     matchCompleted: 20,
     matchWin: 30,
+    dailyCompleted: 25,
   },
   levelCurve: {
     base: 100,
@@ -119,6 +135,22 @@ export const defaultBalance: Balance = {
     // 8 predefined emote keys (GDD §10.2). The client localizes each.
     set: ["laugh", "fire", "revenge", "lucky", "wow", "clap", "gg", "think"],
     perMatch: 3,
+  },
+  daily: {
+    // 3 Easy + 4 Medium + 3 Hard = 10 questions (GDD §5).
+    composition: [
+      "easy",
+      "easy",
+      "easy",
+      "medium",
+      "medium",
+      "medium",
+      "medium",
+      "hard",
+      "hard",
+      "hard",
+    ],
+    windowMs: 14 * 60 * 60 * 1000, // ±14h device-timezone sanity window (GDD §5)
   },
 };
 

@@ -194,6 +194,36 @@ abstract class AppLocalizations {
   /// **'התחל דו-קרב'**
   String get homeEmptyCta;
 
+  /// No description provided for @dailyCardPlay.
+  ///
+  /// In he, this message translates to:
+  /// **'10 שאלות · שחק עכשיו'**
+  String get dailyCardPlay;
+
+  /// No description provided for @dailyCardDone.
+  ///
+  /// In he, this message translates to:
+  /// **'שיחקת היום · {score} נק׳'**
+  String dailyCardDone(int score);
+
+  /// No description provided for @dailyResultTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'האתגר היומי הושלם!'**
+  String get dailyResultTitle;
+
+  /// No description provided for @dailyResultStreak.
+  ///
+  /// In he, this message translates to:
+  /// **'רצף של {count} ימים'**
+  String dailyResultStreak(int count);
+
+  /// No description provided for @dailyShareText.
+  ///
+  /// In he, this message translates to:
+  /// **'צברתי {score} נקודות באתגר היומי של טריוויה 🔥 נסו לנצח אותי'**
+  String dailyShareText(int score);
+
   /// No description provided for @playTitle.
   ///
   /// In he, this message translates to:

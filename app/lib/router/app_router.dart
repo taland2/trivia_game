@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../data/category_mode.dart';
 import '../data/seed_friends.dart';
 import '../round_screen.dart';
+import '../screens/daily/daily_screen.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/play/category_mode_picker.dart';
@@ -93,6 +94,12 @@ final appRouter = GoRouter(
         matchId: state.pathParameters['matchId']!,
         categoryMode: state.extra as CategoryMode?,
       ),
+    ),
+    GoRoute(
+      path: Routes.daily,
+      name: Routes.nameDaily,
+      parentNavigatorKey: _rootKey, // full-screen, above the tab bar
+      builder: (context, state) => const DailyScreen(),
     ),
   ],
 );
