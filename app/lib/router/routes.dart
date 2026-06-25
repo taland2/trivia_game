@@ -21,6 +21,9 @@ abstract class Routes {
   // Full-screen daily-challenge play flow on the root navigator (no tab bar).
   static const daily = '/daily';
 
+  // Full-screen weekly leaderboard on the root navigator (reached from Home card).
+  static const weekly = '/weekly';
+
   // Named routes for go() / pushNamed where useful.
   static const nameHome = 'home';
   static const namePlay = 'play';
@@ -31,4 +34,5 @@ abstract class Routes {
   static const nameSettings = 'settings';
   static const nameMatch = 'match';
   static const nameDaily = 'daily';
+  static const nameWeekly = 'weekly';
 }

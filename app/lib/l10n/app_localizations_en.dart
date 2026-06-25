@@ -78,6 +78,51 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get weeklyTitle => 'Weekly Race';
+
+  @override
+  String weeklyYourRank(int rank) {
+    return 'Rank #$rank';
+  }
+
+  @override
+  String weeklyPointsLabel(int points) {
+    return '$points pts';
+  }
+
+  @override
+  String weeklyLevelLabel(int level) {
+    return 'Level $level';
+  }
+
+  @override
+  String get weeklyEmptyTitle => 'The race hasn\'t started';
+
+  @override
+  String get weeklyEmptyBody =>
+      'Invite friends and play — your weekly score shows up here';
+
+  @override
+  String get weeklyEmptyCta => 'Start a duel';
+
+  @override
+  String get weeklyPodiumTitle => 'Podium';
+
+  @override
+  String homeWeeklyRank(int rank) {
+    return 'You\'re #$rank this week';
+  }
+
+  @override
+  String get homeWeeklyJoin => 'Race your friends this week';
+
+  @override
+  String get friendsTodayTitle => 'Friends today';
+
+  @override
+  String get friendsTodayEmpty => 'No friends have played yet today';
+
+  @override
   String get playTitle => 'Play';
 
   @override

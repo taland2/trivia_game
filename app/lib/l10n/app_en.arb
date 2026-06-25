@@ -35,6 +35,31 @@
     "placeholders": { "score": { "type": "int" } }
   },
 
+  "weeklyTitle": "Weekly Race",
+  "weeklyYourRank": "Rank #{rank}",
+  "@weeklyYourRank": {
+    "placeholders": { "rank": { "type": "int" } }
+  },
+  "weeklyPointsLabel": "{points} pts",
+  "@weeklyPointsLabel": {
+    "placeholders": { "points": { "type": "int" } }
+  },
+  "weeklyLevelLabel": "Level {level}",
+  "@weeklyLevelLabel": {
+    "placeholders": { "level": { "type": "int" } }
+  },
+  "weeklyEmptyTitle": "The race hasn't started",
+  "weeklyEmptyBody": "Invite friends and play — your weekly score shows up here",
+  "weeklyEmptyCta": "Start a duel",
+  "weeklyPodiumTitle": "Podium",
+  "homeWeeklyRank": "You're #{rank} this week",
+  "@homeWeeklyRank": {
+    "placeholders": { "rank": { "type": "int" } }
+  },
+  "homeWeeklyJoin": "Race your friends this week",
+  "friendsTodayTitle": "Friends today",
+  "friendsTodayEmpty": "No friends have played yet today",
+
   "playTitle": "Play",
   "playStartDuel": "New duel",
   "playStartDuelSubtitle": "Pick a friend and a category mode",

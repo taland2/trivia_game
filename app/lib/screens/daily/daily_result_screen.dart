@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../models/leaderboard.dart';
 import '../../round_result_screen.dart' show RoundQuestionResult;
 import '../../services/audio_service.dart';
 import '../../services/haptics_service.dart';
+import '../../state/weekly_providers.dart';
 import '../../theme/tokens.dart';
 
 /// Daily-challenge result (GDD §5, doc 04 §3): final score, accuracy, the streak
@@ -20,6 +23,7 @@ class DailyResultScreen extends StatefulWidget {
     required this.streakCount,
     required this.weeklyPoints,
     required this.onContinue,
+    this.dayId,
   });
 
   final List<RoundQuestionResult> results;
@@ -28,6 +32,10 @@ class DailyResultScreen extends StatefulWidget {
   final int streakCount;
   final int weeklyPoints;
   final VoidCallback onContinue;
+
+  /// Today's dayId — drives the friends-today board (post-play, GDD §5). Null in
+  /// tests/contexts that don't surface the board.
+  final String? dayId;
 
   @override
   State<DailyResultScreen> createState() => _DailyResultScreenState();
@@ -120,6 +128,7 @@ class _DailyResultScreenState extends State<DailyResultScreen> {
               ],
               const SizedBox(height: AppSpacing.lg),
               Expanded(child: _Breakdown(results: widget.results)),
+              if (widget.dayId != null) _FriendsTodayBoard(dayId: widget.dayId!),
               Row(
                 children: [
                   Expanded(
@@ -148,6 +157,69 @@ class _DailyResultScreenState extends State<DailyResultScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Friends-today board (GDD §7, doc 07 §2.4): how the viewer's friends did on
+/// today's daily, shown only AFTER the viewer has played (this screen is reached
+/// post-play, and the rules gate friend reads on the viewer's own `finishedAt` —
+/// anti-spoiler, GDD §5). Reads `daily/{dayId}/friendScores/*` (no question
+/// content). A thin/empty friend graph just collapses to an empty line.
+class _FriendsTodayBoard extends ConsumerWidget {
+  const _FriendsTodayBoard({required this.dayId});
+  final String dayId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final scores = ref.watch(dailyFriendsBoardProvider(dayId));
+    final rows = scores.valueOrNull ?? const <FriendScore>[];
+    // Hide entirely while loading or on error — it's a secondary, best-effort
+    // section and must never block the result screen.
+    if (scores.isLoading || rows.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l.friendsTodayTitle,
+            style: const TextStyle(
+                color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          ...rows.take(5).toList().asMap().entries.map((e) {
+            final i = e.key;
+            final s = e.value;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 22,
+                    child: Text('${i + 1}',
+                        style: const TextStyle(
+                            color: Colors.white54, fontWeight: FontWeight.bold)),
+                  ),
+                  Expanded(
+                    child: Text(
+                      s.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  Text('${s.score}',
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

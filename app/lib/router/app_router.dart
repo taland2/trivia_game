@@ -12,6 +12,7 @@ import '../screens/play/friend_picker_screen.dart';
 import '../screens/play/play_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/settings_screen.dart';
+import '../screens/weekly/weekly_screen.dart';
 import '../shell/home_shell.dart';
 import 'routes.dart';
 
@@ -100,6 +101,12 @@ final appRouter = GoRouter(
       name: Routes.nameDaily,
       parentNavigatorKey: _rootKey, // full-screen, above the tab bar
       builder: (context, state) => const DailyScreen(),
+    ),
+    GoRoute(
+      path: Routes.weekly,
+      name: Routes.nameWeekly,
+      parentNavigatorKey: _rootKey, // full-screen, above the tab bar
+      builder: (context, state) => const WeeklyScreen(),
     ),
   ],
 );

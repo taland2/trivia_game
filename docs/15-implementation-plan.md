@@ -636,6 +636,29 @@ firing remain a dedicated later step — see decision 2.)*
 > untouched) clean.
 > **7b-2 (next):** Dart models, weekly board provider/screen, podium, Home weekly card,
 > daily-result friends board, l10n, widget tests.
+>
+> **2026-06-25 — Phase 7b-2 ✅ complete → Phase 7b done.** Client UI on top of the
+> 7b-1 projections; app-only (no backend change).
+> **Models** (`app/lib/models/leaderboard.dart`): `LeaderboardRow`/`WeeklyBoard`/
+> `FriendScore` mirror `api_contract/board.ts` — rendered, never re-derived (guardrail #1).
+> **Providers** (`app/lib/state/weekly_providers.dart`): `clientWeekId()` mirrors the
+> server `weekId()` (ISO-8601, week-numbering year, Thursday rule) so the client targets
+> the right `weekly/{weekId}/boards/{uid}` doc — uses device-local date (matches the IL
+> audience; a non-IL device near the Monday boundary self-heals, board read is display-only,
+> unit-tested for parity incl. year crossover). `weeklyBoardProvider` (single owner-readable
+> doc that already embeds friends' rows — one listened doc per player). `dailyFriendsBoardProvider`
+> derives friend uids from the weekly board (the only client-readable friend list pre-Phase-8,
+> since `friendships/*` is client-denied) and fans IN per-doc `daily/{dayId}/friendScores/{uid}`
+> gets (a collection query would be denied by the friend-gate rule).
+> **Screens:** `WeeklyScreen` (top-3 podium strip + ranked list, own row highlighted; solo/
+> empty graph → invite-to-race empty state per the user decision); `PodiumScreen` (top-3
+> celebration, reduced-motion aware, reuses Phase-5 fanfare/haptics). New `/weekly` full-screen
+> route. Home weekly card placeholder → real (my rank when a race exists, else join prompt).
+> Daily-result screen gains a post-play friends-today board (`_FriendsTodayBoard`, hidden while
+> loading/empty — anti-spoiler holds since the screen is reached post-play + rules gate).
+> **l10n:** weekly/podium/friends-today keys HE (template) + EN.
+> **Tests:** +7 Flutter widget/unit (3 weekly-screen: ranked render, solo empty, podium top-3;
+> 4 `clientWeekId` parity) → 24 Flutter green; `flutter analyze` clean. Backend untouched.
 
 ## Phase 8 — Identity & Friends
 *Refs: doc 05 §1, doc 02 §10.1, doc 07 §2.1/§4*
@@ -722,7 +745,7 @@ operating period, not a build phase).
 | 6a review remediation — WS1 (integrity/idempotency) | ✅ | 2026-06-21 | 8b98aec |
 | 6b — Duel loop complete + WS2/WS3/WS4 | ✅ | 2026-06-23 | (this commit) |
 | 7a — Daily Challenge + streaks | ✅ | 2026-06-24 | (this commit) |
-| 7b — Weekly race + podium + daily board | ☐ | | |
+| 7b — Weekly race + podium + daily board | ✅ | 2026-06-25 | (uncommitted) |
 | 8 — Identity & friends | ☐ | | |
 | 9 — Notifications | ☐ | | |
 | 10 — Content (parallel) | ☐ | | |

@@ -103,6 +103,7 @@ class _DailyScreenState extends ConsumerState<DailyScreen> {
           correctCount: r?.correctCount ?? _results.where((x) => x.wasCorrect).length,
           streakCount: _streakCount,
           weeklyPoints: r?.weeklyPointsAwarded ?? 0,
+          dayId: _dayId,
           onContinue: () => context.go(Routes.home),
         ),
       ),

@@ -35,6 +35,31 @@
     "placeholders": { "score": { "type": "int" } }
   },
 
+  "weeklyTitle": "מרוץ שבועי",
+  "weeklyYourRank": "מקום #{rank}",
+  "@weeklyYourRank": {
+    "placeholders": { "rank": { "type": "int" } }
+  },
+  "weeklyPointsLabel": "{points} נק׳",
+  "@weeklyPointsLabel": {
+    "placeholders": { "points": { "type": "int" } }
+  },
+  "weeklyLevelLabel": "רמה {level}",
+  "@weeklyLevelLabel": {
+    "placeholders": { "level": { "type": "int" } }
+  },
+  "weeklyEmptyTitle": "המרוץ עוד לא התחיל",
+  "weeklyEmptyBody": "הזמן חברים ושחקו — הניקוד השבועי שלכם יופיע כאן",
+  "weeklyEmptyCta": "התחל דו-קרב",
+  "weeklyPodiumTitle": "פודיום",
+  "homeWeeklyRank": "מקום #{rank} השבוע",
+  "@homeWeeklyRank": {
+    "placeholders": { "rank": { "type": "int" } }
+  },
+  "homeWeeklyJoin": "התחרו מול החברים השבוע",
+  "friendsTodayTitle": "חברים היום",
+  "friendsTodayEmpty": "אף חבר עוד לא שיחק היום",
+
   "playTitle": "משחק",
   "playStartDuel": "דו-קרב חדש",
   "playStartDuelSubtitle": "בחר חבר ומצב קטגוריה",

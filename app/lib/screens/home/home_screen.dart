@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/match_list_entry.dart';
 import '../../router/routes.dart';
+import '../../state/auth_providers.dart';
 import '../../state/daily_providers.dart';
 import '../../state/match_list_providers.dart';
 import '../../state/user_profile_provider.dart';
+import '../../state/weekly_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/async_value_view.dart';
 import '../../widgets/empty_state.dart';
@@ -95,38 +97,29 @@ class _DailyChallengeCard extends ConsumerWidget {
   }
 }
 
-/// Phase 7 placeholder.
-class _WeeklyRaceCard extends StatelessWidget {
+/// Weekly Race entry (GDD §7): my rank this week (or a join prompt when the race
+/// hasn't started / I have no friends yet), routing into the full leaderboard.
+class _WeeklyRaceCard extends ConsumerWidget {
   const _WeeklyRaceCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    return _PlaceholderCard(
-      icon: Icons.emoji_events_outlined,
-      title: l.homeWeeklyCardTitle,
-      subtitle: l.homeWeeklyCardSoon,
-    );
-  }
-}
+    final uid = ref.watch(currentUidProvider);
+    final board = ref.watch(weeklyBoardProvider).valueOrNull;
+    final myRank =
+        uid == null ? null : board?.rowFor(uid)?.rank;
+    // Only show a rank when there is an actual race (more than just me).
+    final hasRace = board != null && board.rows.length > 1 && myRank != null;
 
-class _PlaceholderCard extends StatelessWidget {
-  const _PlaceholderCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        title: Text(title),
-        subtitle: Text(subtitle),
+        leading: Icon(Icons.emoji_events_outlined,
+            color: Theme.of(context).colorScheme.primary),
+        title: Text(l.homeWeeklyCardTitle),
+        subtitle: Text(hasRace ? l.homeWeeklyRank(myRank) : l.homeWeeklyJoin),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.push(Routes.weekly),
       ),
     );
   }

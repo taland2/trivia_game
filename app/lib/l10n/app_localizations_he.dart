@@ -78,6 +78,51 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String get weeklyTitle => 'מרוץ שבועי';
+
+  @override
+  String weeklyYourRank(int rank) {
+    return 'מקום #$rank';
+  }
+
+  @override
+  String weeklyPointsLabel(int points) {
+    return '$points נק׳';
+  }
+
+  @override
+  String weeklyLevelLabel(int level) {
+    return 'רמה $level';
+  }
+
+  @override
+  String get weeklyEmptyTitle => 'המרוץ עוד לא התחיל';
+
+  @override
+  String get weeklyEmptyBody =>
+      'הזמן חברים ושחקו — הניקוד השבועי שלכם יופיע כאן';
+
+  @override
+  String get weeklyEmptyCta => 'התחל דו-קרב';
+
+  @override
+  String get weeklyPodiumTitle => 'פודיום';
+
+  @override
+  String homeWeeklyRank(int rank) {
+    return 'מקום #$rank השבוע';
+  }
+
+  @override
+  String get homeWeeklyJoin => 'התחרו מול החברים השבוע';
+
+  @override
+  String get friendsTodayTitle => 'חברים היום';
+
+  @override
+  String get friendsTodayEmpty => 'אף חבר עוד לא שיחק היום';
+
+  @override
   String get playTitle => 'משחק';
 
   @override

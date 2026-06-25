@@ -224,6 +224,78 @@ abstract class AppLocalizations {
   /// **'צברתי {score} נקודות באתגר היומי של טריוויה 🔥 נסו לנצח אותי'**
   String dailyShareText(int score);
 
+  /// No description provided for @weeklyTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'מרוץ שבועי'**
+  String get weeklyTitle;
+
+  /// No description provided for @weeklyYourRank.
+  ///
+  /// In he, this message translates to:
+  /// **'מקום #{rank}'**
+  String weeklyYourRank(int rank);
+
+  /// No description provided for @weeklyPointsLabel.
+  ///
+  /// In he, this message translates to:
+  /// **'{points} נק׳'**
+  String weeklyPointsLabel(int points);
+
+  /// No description provided for @weeklyLevelLabel.
+  ///
+  /// In he, this message translates to:
+  /// **'רמה {level}'**
+  String weeklyLevelLabel(int level);
+
+  /// No description provided for @weeklyEmptyTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'המרוץ עוד לא התחיל'**
+  String get weeklyEmptyTitle;
+
+  /// No description provided for @weeklyEmptyBody.
+  ///
+  /// In he, this message translates to:
+  /// **'הזמן חברים ושחקו — הניקוד השבועי שלכם יופיע כאן'**
+  String get weeklyEmptyBody;
+
+  /// No description provided for @weeklyEmptyCta.
+  ///
+  /// In he, this message translates to:
+  /// **'התחל דו-קרב'**
+  String get weeklyEmptyCta;
+
+  /// No description provided for @weeklyPodiumTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'פודיום'**
+  String get weeklyPodiumTitle;
+
+  /// No description provided for @homeWeeklyRank.
+  ///
+  /// In he, this message translates to:
+  /// **'מקום #{rank} השבוע'**
+  String homeWeeklyRank(int rank);
+
+  /// No description provided for @homeWeeklyJoin.
+  ///
+  /// In he, this message translates to:
+  /// **'התחרו מול החברים השבוע'**
+  String get homeWeeklyJoin;
+
+  /// No description provided for @friendsTodayTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'חברים היום'**
+  String get friendsTodayTitle;
+
+  /// No description provided for @friendsTodayEmpty.
+  ///
+  /// In he, this message translates to:
+  /// **'אף חבר עוד לא שיחק היום'**
+  String get friendsTodayEmpty;
+
   /// No description provided for @playTitle.
   ///
   /// In he, this message translates to:
