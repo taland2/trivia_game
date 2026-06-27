@@ -201,6 +201,122 @@ class AppLocalizationsEn extends AppLocalizations {
       'Weekly leaderboard and friends are coming soon';
 
   @override
+  String get friendsMyQr => 'My QR';
+
+  @override
+  String get friendsAddTitle => 'Add friend';
+
+  @override
+  String get friendsRequestsTitle => 'Friend requests';
+
+  @override
+  String get friendsAccept => 'Accept';
+
+  @override
+  String get friendsDecline => 'Decline';
+
+  @override
+  String get friendsBlock => 'Block';
+
+  @override
+  String get friendsUnfriend => 'Unfriend';
+
+  @override
+  String get friendsUnfriendConfirm => 'Remove this friend?';
+
+  @override
+  String get friendsBlockConfirm => 'Block this user?';
+
+  @override
+  String get friendsEmptyTitle => 'No friends yet';
+
+  @override
+  String get friendsEmptyBody =>
+      'Add friends by username, QR, or an invite code';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get commonConfirm => 'Confirm';
+
+  @override
+  String get addFriendSearchHint => 'Search by username';
+
+  @override
+  String get addFriendSend => 'Send request';
+
+  @override
+  String get addFriendSent => 'Sent';
+
+  @override
+  String get inviteCodeTitle => 'Invite code';
+
+  @override
+  String get inviteCodeHint => 'Enter an 8-character code';
+
+  @override
+  String get inviteCodeInvalid => 'Invalid code';
+
+  @override
+  String get inviteRedeemed => 'Friend added!';
+
+  @override
+  String get scanQrTitle => 'Scan QR';
+
+  @override
+  String get scanQrHint => 'Point the camera at your friend\'s QR';
+
+  @override
+  String get myQrShareCode => 'Your code';
+
+  @override
+  String get myQrCopyLink => 'Copy link';
+
+  @override
+  String get editProfileTitle => 'Edit profile';
+
+  @override
+  String get editProfileDisplayName => 'Display name';
+
+  @override
+  String get editProfileAvatar => 'Avatar';
+
+  @override
+  String get editProfileSearchable => 'Searchable';
+
+  @override
+  String get editProfileSearchableHint => 'Let friends find you by username';
+
+  @override
+  String get editProfileSave => 'Save';
+
+  @override
+  String get editProfileSaved => 'Saved';
+
+  @override
+  String get editProfileUsername => 'Username';
+
+  @override
+  String get usernameClaimed => 'Username claimed';
+
+  @override
+  String get usernameTaken => 'That username is taken';
+
+  @override
+  String get usernameProfane => 'That username isn\'t allowed';
+
+  @override
+  String get usernameInvalid => 'Invalid username (3-20 chars, a-z 0-9 _)';
+
+  @override
+  String get deleteAccount => 'Delete account';
+
+  @override
+  String get deleteAccountWarning =>
+      'This deletes your account and awards a win to opponents in active matches. This can\'t be undone.';
+
+  @override
   String get profileTitle => 'Profile';
 
   @override

@@ -11,8 +11,17 @@ abstract class Routes {
   static const friendPicker = 'pick'; // -> /play/pick
   static const categoryMode = 'mode'; // -> /play/mode
 
-  // Profile sub-route (push within the Profile tab; tab bar stays).
+  // Profile sub-routes (push within the Profile tab; tab bar stays).
   static const settings = 'settings'; // -> /profile/settings
+  static const editProfile = 'edit'; // -> /profile/edit
+
+  // Friends sub-routes (push within the Friends tab; tab bar stays).
+  static const friendsAdd = 'add'; // -> /friends/add
+  static const friendsScan = 'scan'; // -> /friends/scan
+  static const friendsMyQr = 'myqr'; // -> /friends/myqr
+  static const friendsAddPath = '/friends/add';
+  static const friendsScanPath = '/friends/scan';
+  static const friendsMyQrPath = '/friends/myqr';
 
   // Full-screen match route on the root navigator.
   static String match(String matchId) => '/match/$matchId';
@@ -35,4 +44,8 @@ abstract class Routes {
   static const nameMatch = 'match';
   static const nameDaily = 'daily';
   static const nameWeekly = 'weekly';
+  static const nameEditProfile = 'editProfile';
+  static const nameFriendsAdd = 'friendsAdd';
+  static const nameFriendsScan = 'friendsScan';
+  static const nameFriendsMyQr = 'friendsMyQr';
 }

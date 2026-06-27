@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'l10n/app_localizations.dart';
 import 'router/app_router.dart';
 import 'state/auth_providers.dart';
+import 'state/daily_providers.dart';
 import 'state/settings_providers.dart';
 import 'theme/app_theme.dart';
 import 'services/audio_service.dart';
@@ -37,12 +38,20 @@ class _TriviaAppState extends ConsumerState<TriviaApp> with WidgetsBindingObserv
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // When the app comes back to the foreground without a uid (e.g. the user
-    // launched offline and has since regained connectivity), retry the bootstrap
-    // so the backend-dependent screens come to life without a restart.
-    if (state == AppLifecycleState.resumed &&
-        ref.read(sessionProvider).valueOrNull == null) {
-      ref.invalidate(sessionProvider);
+    if (state == AppLifecycleState.resumed) {
+      // The local calendar date may have rolled over while the app was warm in
+      // the background. Recompute it so the Home daily card and the daily flow
+      // track today, not the day the app was last opened (todayDayIdProvider is
+      // otherwise cached for the whole session).
+      ref.invalidate(todayDayIdProvider);
+
+      // When the app comes back to the foreground without a uid (e.g. the user
+      // launched offline and has since regained connectivity), retry the
+      // bootstrap so the backend-dependent screens come to life without a
+      // restart.
+      if (ref.read(sessionProvider).valueOrNull == null) {
+        ref.invalidate(sessionProvider);
+      }
     }
   }
 

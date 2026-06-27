@@ -128,6 +128,10 @@ beforeAll(async () => {
   B = await makeClient("ecB");
   await setProfile(A, "he");
   await setProfile(B, "he");
+  // Phase 8a friend gate: direct duels require a friendship.
+  await adminDb.doc(`friendships/${[A.uid, B.uid].sort().join("_")}`).set({
+    uids: [A.uid, B.uid].sort(), since: new Date().toISOString(), source: "test",
+  });
 });
 
 async function setProfile(c: Client, language: string): Promise<void> {

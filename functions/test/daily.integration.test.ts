@@ -178,8 +178,32 @@ describe("Daily Challenge (GDD §5)", () => {
 
   it("resumes with the identical servings (idempotent start)", async () => {
     const first = await call(U, "v1_startDaily", { dayId: TODAY });
+    expect(first.answeredCount).toBe(0);
     const again = await call(U, "v1_startDaily", { dayId: TODAY });
     expect(again.servings).toEqual(first.servings);
+    expect(again.answeredCount).toBe(0);
+  });
+
+  it("resume after a partial play returns the answered cursor", async () => {
+    // Answer the first 3 questions, then leave (no further submits).
+    const start = await call(U, "v1_startDaily", { dayId: TODAY });
+    for (let qIx = 0; qIx < 3; qIx++) {
+      const cix = await dailyCorrectIx(TODAY, qIx, U.uid);
+      await call(U, "v1_submitDailyAnswer", {
+        dayId: TODAY, qIx, answerIx: cix, idempotencyKey: crypto.randomUUID(),
+      });
+    }
+    // Re-start: same servings, and the cursor tells the client to continue at 3
+    // (replaying from 0 would be rejected out-of-order and strand the player).
+    const resumed = await call(U, "v1_startDaily", { dayId: TODAY });
+    expect(resumed.servings).toEqual(start.servings);
+    expect(resumed.answeredCount).toBe(3);
+    // Continuing from the cursor succeeds and the play can still complete.
+    const cix3 = await dailyCorrectIx(TODAY, 3, U.uid);
+    const next = await call(U, "v1_submitDailyAnswer", {
+      dayId: TODAY, qIx: 3, answerIx: cix3, idempotencyKey: crypto.randomUUID(),
+    });
+    expect(next.correctIx).toBe(cix3);
   });
 
   it("rejects out-of-order answers", async () => {

@@ -8,9 +8,17 @@ import '../match/match_controller.dart' show genUuid;
 /// Today's daily set for the player: 10 servings (GDD §5). Mirrors
 /// `StartDailyResponse` in `@trivia/api-contract`.
 class DailyStart {
-  const DailyStart({required this.dayId, required this.servings});
+  const DailyStart({
+    required this.dayId,
+    required this.servings,
+    this.answeredCount = 0,
+  });
   final String dayId;
   final List<Map<String, dynamic>> servings;
+
+  /// Questions the server has already recorded — the resume cursor. The screen
+  /// continues from here; replaying from 0 would be rejected out-of-order.
+  final int answeredCount;
 }
 
 /// Final daily outcome, present on the 10th answer (`DailyResult`).
@@ -68,6 +76,7 @@ class FirebaseDailyApi implements DailyApi {
       servings: (res.data['servings'] as List)
           .map((s) => Map<String, dynamic>.from(s as Map))
           .toList(),
+      answeredCount: (res.data['answeredCount'] as num?)?.toInt() ?? 0,
     );
   }
 

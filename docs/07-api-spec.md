@@ -51,6 +51,18 @@
 | `v1_updateNotificationPrefs` | `{prefs}` | `{ok}` | Mirror of doc 05 §3 toggles + daily time |
 | `v1_deleteAccount` | `{confirmPhrase}` | `{ok}` | Doc 09 deletion flow; opponents get forfeit wins |
 
+> **Phase 8a status (2026-06-27):** implemented (emulator) with these shape refinements —
+> every mutating call carries `idempotencyKey`; `v1_claimUsername` → `{ok, username}`;
+> `v1_redeemInviteCode` → `{friendUid, autoMatchId?}`; `v1_completeOnboarding` →
+> `{displayName, avatarId, username}`; `v1_deleteAccount` `confirmPhrase` is the literal
+> `"DELETE"` (minimal cascade now: opponent forfeit + tombstone; full PII wipe = Gate C).
+> `sendFriendRequest` auto-accepts a reverse-pending request and denormalizes sender identity
+> onto the request doc. New `details.reason` values: `username-taken` (`already-exists`),
+> `username-profane` (`failed-precondition`), `not-friends` (`permission-denied`), `invite-self`
+> (`failed-precondition`), `invite-exhausted` (`resource-exhausted`), `friend-request`
+> (`not-found`). **Deferred to 8b (real project):** `v1_mergeGuestAccount`,
+> `v1_updateNotificationPrefs`, and the invite deep-link delivery (§4 below).
+
 ### 2.2 Duel Lifecycle
 
 | Function | Request | Response | Notes |

@@ -1,4 +1,8 @@
-import type { Difficulty } from "@trivia/api-contract";
+import {
+  DAILY_QUESTION_COUNT,
+  type CategoryMode,
+  type Difficulty,
+} from "@trivia/api-contract";
 
 // All ⚖️ balance values (GDD §12) live here and NOWHERE else in the codebase.
 // These are the in-code defaults; per-environment values come from Remote Config
@@ -81,6 +85,16 @@ export interface EmoteBalance {
   perMatch: number;
 }
 
+// Social graph balance (GDD §10.1 ⚖️, Phase 8a).
+export interface SocialBalance {
+  // Max username-search hits returned (doc 07 §2.1 — ≤10).
+  searchResultLimit: number;
+  // Max redemptions one invite code may serve (doc 08 — multi-use group link).
+  inviteMaxRedemptions: number;
+  // Category mode the redeem auto-duel runs in (doc 05 §5).
+  autoDuelCategoryMode: CategoryMode;
+}
+
 export interface Balance {
   difficulties: Record<Difficulty, DifficultyBalance>;
   // Max speed bonus fraction: +50% for an instant answer, decaying linearly to 0
@@ -97,6 +111,7 @@ export interface Balance {
   levelCurve: LevelCurveBalance;
   emotes: EmoteBalance;
   daily: DailyBalance;
+  social: SocialBalance;
 }
 
 // GDD §3.2 / §3.3 initial values.
@@ -155,7 +170,22 @@ export const defaultBalance: Balance = {
     ],
     windowMs: 14 * 60 * 60 * 1000, // ±14h device-timezone sanity window (GDD §5)
   },
+  social: {
+    searchResultLimit: 10, // doc 07 §2.1 — ≤10 username-search hits
+    inviteMaxRedemptions: 50, // doc 08 — one group link onboards many
+    autoDuelCategoryMode: "spin", // redeem auto-duel mode (doc 05 §5)
+  },
 };
+
+// The daily composition length and the contract's DAILY_QUESTION_COUNT are two
+// faces of the same constant (the serve/submit path uses composition.length as
+// the question count). Assert they agree at module load so a drift fails loudly
+// here rather than as a runtime daily-unavailable for every player.
+if (defaultBalance.daily.composition.length !== DAILY_QUESTION_COUNT) {
+  throw new Error(
+    `daily.composition length (${defaultBalance.daily.composition.length}) must equal DAILY_QUESTION_COUNT (${DAILY_QUESTION_COUNT})`,
+  );
+}
 
 // TODO(Phase 1+): fetch the Remote Config server template per environment
 // (doc 13 §5) with defaultBalance as fallback. Emulator/dev runs use defaults.

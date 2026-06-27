@@ -6,3 +6,4 @@ export * from "./stranger.js";
 export * from "./emote.js";
 export * from "./daily.js";
 export * from "./board.js";
+export * from "./social.js";

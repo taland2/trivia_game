@@ -9,7 +9,52 @@ import {
 } from "../economy/grants.js";
 import { fanOutWeeklyBoards } from "../economy/boards.js";
 import { matchListEntryFor, matchListPath } from "./matchList.js";
-import type { MatchDoc } from "./types.js";
+import type { MatchDoc, MatchReason } from "./types.js";
+
+// Write a forfeit win onto a match (shared by the turn-deadline sweep and the
+// account-deletion cascade). WRITE-ONLY — the caller must have already read the
+// match (to confirm it's resolvable, exactly-once) and the winner's xp in the
+// transaction's read phase. The winner gets the flat forfeit weekly points + full
+// completion+win XP (a forfeit win is a win — Phase 4b decision); the loser none.
+export function resolveForfeitWin(
+  tx: FirebaseFirestore.Transaction,
+  db: FirebaseFirestore.Firestore,
+  matchId: string,
+  match: MatchDoc,
+  winner: string,
+  loser: string,
+  winnerXp: number,
+  reason: MatchReason,
+  now: Timestamp,
+  balance: Balance,
+): void {
+  const forfeitPoints = weeklyPointsForForfeitWin(balance);
+
+  match.state = "forfeited";
+  match.turnUid = null;
+  match.turnDeadline = null;
+  match.finishedAt = now;
+  match.result = {
+    winner,
+    reason,
+    finalScore: { ...match.roundWins },
+    weeklyPointsAwarded: { [winner]: forfeitPoints, [loser]: 0 },
+  };
+
+  tx.set(db.doc(`matches/${matchId}`), match);
+  for (const p of match.players) {
+    tx.set(
+      db.doc(matchListPath(p, matchId)),
+      matchListEntryFor(matchId, match, p, now),
+    );
+  }
+  applyWeeklyPoints(tx, db, now.toDate(), winner, forfeitPoints, "forfeitsWon");
+  tx.set(
+    db.doc(`users/${winner}`),
+    nextUserXp(winnerXp, xpForCompletion(true, balance), balance),
+    { merge: true },
+  );
+}
 
 // Auto-forfeit at 36h of turn inactivity (GDD §4.4). The inactive player (whose
 // turn it currently is) loses; the other player wins, gets the flat forfeit
@@ -94,40 +139,12 @@ async function forfeitMatchTx(
     const { winner, loser } = decision;
 
     // Read the winner's user doc before any write (reads precede writes).
-    const winnerRef = db.doc(`users/${winner}`);
-    const winnerSnap = await tx.get(winnerRef);
+    const winnerSnap = await tx.get(db.doc(`users/${winner}`));
     const winnerXp = (winnerSnap.data()?.["xp"] as number) ?? 0;
 
-    const forfeitPoints = weeklyPointsForForfeitWin(balance);
-
-    match.state = "forfeited";
-    match.turnUid = null;
-    match.turnDeadline = null;
-    match.finishedAt = now;
-    match.result = {
-      winner,
-      reason: "forfeit",
-      finalScore: { ...match.roundWins },
-      weeklyPointsAwarded: { [winner]: forfeitPoints, [loser]: 0 },
-    };
-
-    tx.set(matchRef, match);
-    for (const p of match.players) {
-      tx.set(
-        db.doc(matchListPath(p, matchId)),
-        matchListEntryFor(matchId, match, p, now),
-      );
-    }
-
-    // Economy grants (winner only). Full completion+win XP; flat forfeit points.
-    const nowDate = now.toDate();
-    applyWeeklyPoints(tx, db, nowDate, winner, forfeitPoints, "forfeitsWon");
-    tx.set(
-      winnerRef,
-      nextUserXp(winnerXp, xpForCompletion(true, balance), balance),
-      { merge: true },
+    resolveForfeitWin(
+      tx, db, matchId, match, winner, loser, winnerXp, "forfeit", now, balance,
     );
-
     return winner;
   });
 }

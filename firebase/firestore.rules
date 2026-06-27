@@ -53,14 +53,18 @@ service cloud.firestore {
       }
     }
 
-    // Player profile (doc 08 §2). Owner-readable (Phase 8 widens reads to friends).
+    // Player profile (doc 08 §2). Readable by the owner AND the owner's friends
+    // (Phase 8a widen — the friends list / picker render friend name/avatar/level).
+    // Non-friend profiles never reach a client via a listener; username search
+    // returns its PUBLIC subset through the v1_searchUsername callable instead.
     // Clients may write ONLY preference fields (guardrail #1 whitelist); integrity
     // fields (xp, level, username, stats, streak, blocked) are function-written and
     // must never be touched by a client. `create` bounds the initial key set; every
     // later `update` may only change whitelisted keys (diff), so function-written
     // fields added afterwards stay locked even though they exist on the doc.
     match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null
+        && (request.auth.uid == uid || isFriend(request.auth.uid, uid));
 
       allow create: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(
@@ -109,8 +113,31 @@ service cloud.firestore {
       );
     }
 
+    // Social graph (Phase 8a, doc 08 §2). All function-written (guardrail #1) — no
+    // `allow write` anywhere; clients only READ the slices that concern them.
+
+    // A friendship edge — readable by either member (the weekly board + friends
+    // list need it). `uids` is the sorted pair.
+    match /friendships/{pairId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.uids;
+    }
+
+    // Friend requests — readable by the sender or the recipient only.
+    match /friendRequests/{requestId} {
+      allow read: if request.auth != null
+        && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+    }
+
+    // Invite codes — readable by the issuer only (redeemers go through the
+    // v1_redeemInviteCode callable, so codes can't be enumerated by readers).
+    match /invites/{code} {
+      allow read: if request.auth != null && resource.data.issuerUid == request.auth.uid;
+    }
+
     // Everything else (questions bank, servingsPrivate, idempotency, weekly
-    // scores, dailySets, friendships, …) stays denied by this catch-all.
+    // scores, dailySets, usernames registry, …) stays denied by this catch-all.
+    // `usernames/*` is intentionally here — search is callable-only, so the client
+    // never reads the registry directly.
     match /{document=**} {
       allow read, write: if false;
     }

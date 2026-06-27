@@ -64,6 +64,14 @@ beforeEach(async () => {
     await setDoc(doc(db, `friendships/${[A, B].sort().join("_")}`), { uids: [A, B].sort() });
     await setDoc(doc(db, "weekly/2026-W26/boards", A), { rows: [], updatedAt: "2026-06-22T00:00:00.000Z" });
     await setDoc(doc(db, "daily/2026-06-24/friendScores", A), { uid: A, score: 100 });
+    // Phase 8a: A's profile + social-graph docs. C is a non-friend.
+    await setDoc(doc(db, "users", A), {
+      displayName: "A", avatarId: 1, language: "he", searchable: true,
+      username: "dana", blocked: [], xp: 10, level: 2,
+    });
+    await setDoc(doc(db, "friendRequests", `${C}_${A}`), { from: C, to: A, state: "pending" });
+    await setDoc(doc(db, "invites/INVITE01"), { issuerUid: A, redemptions: [] });
+    await setDoc(doc(db, "usernames/dana"), { uid: A });
   });
 });
 
@@ -214,6 +222,71 @@ describe("daily friends-today board (GDD §5 anti-spoiler, Phase 7b)", () => {
     });
     await assertFails(
       getDoc(doc(env.authenticatedContext(C).firestore(), "daily", day, "friendScores", A)),
+    );
+  });
+});
+
+describe("user profile reads (Phase 8a widen to friends)", () => {
+  it("is readable by the owner and by friends, denied to strangers + anon", async () => {
+    await assertSucceeds(getDoc(doc(env.authenticatedContext(A).firestore(), "users", A)));
+    await assertSucceeds(getDoc(doc(env.authenticatedContext(B).firestore(), "users", A))); // friend
+    await assertFails(getDoc(doc(env.authenticatedContext(C).firestore(), "users", A))); // stranger
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), "users", A)));
+  });
+
+  it("lets the owner write whitelisted prefs but NOT username/blocked", async () => {
+    const dbA = env.authenticatedContext(A).firestore();
+    await assertSucceeds(
+      setDoc(doc(dbA, "users", A), { displayName: "New", avatarId: 3, searchable: false },
+        { merge: true }),
+    );
+    await assertFails(
+      setDoc(doc(dbA, "users", A), { username: "hacker" }, { merge: true }),
+    );
+    await assertFails(
+      setDoc(doc(dbA, "users", A), { blocked: [B] }, { merge: true }),
+    );
+    await assertFails(
+      setDoc(doc(dbA, "users", A), { xp: 99999 }, { merge: true }),
+    );
+  });
+});
+
+describe("social graph collections (Phase 8a)", () => {
+  it("friendships are readable by either member, denied to others", async () => {
+    const pair = `friendships/${[A, B].sort().join("_")}`;
+    await assertSucceeds(getDoc(doc(env.authenticatedContext(A).firestore(), pair)));
+    await assertSucceeds(getDoc(doc(env.authenticatedContext(B).firestore(), pair)));
+    await assertFails(getDoc(doc(env.authenticatedContext(C).firestore(), pair)));
+  });
+
+  it("friendships are never client-writable", async () => {
+    await assertFails(
+      setDoc(doc(env.authenticatedContext(A).firestore(), `friendships/${A}_${C}`), {
+        uids: [A, C].sort(),
+      }),
+    );
+  });
+
+  it("friend requests are readable by sender + recipient only", async () => {
+    const id = `friendRequests/${C}_${A}`; // from C, to A
+    await assertSucceeds(getDoc(doc(env.authenticatedContext(A).firestore(), id))); // recipient
+    await assertSucceeds(getDoc(doc(env.authenticatedContext(C).firestore(), id))); // sender
+    await assertFails(getDoc(doc(env.authenticatedContext(B).firestore(), id)));
+    await assertFails(
+      setDoc(doc(env.authenticatedContext(A).firestore(), id), { state: "accepted" }, { merge: true }),
+    );
+  });
+
+  it("invites are readable by the issuer only (no enumeration by redeemers)", async () => {
+    await assertSucceeds(getDoc(doc(env.authenticatedContext(A).firestore(), "invites/INVITE01")));
+    await assertFails(getDoc(doc(env.authenticatedContext(C).firestore(), "invites/INVITE01")));
+  });
+
+  it("the usernames registry is denied to all clients (search is callable-only)", async () => {
+    await assertFails(getDoc(doc(env.authenticatedContext(A).firestore(), "usernames/dana")));
+    await assertFails(
+      setDoc(doc(env.authenticatedContext(A).firestore(), "usernames/grab"), { uid: A }),
     );
   });
 });

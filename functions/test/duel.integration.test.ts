@@ -187,6 +187,12 @@ beforeAll(async () => {
   // by the client itself — exercising the owner-write rule whitelist.
   await setProfile(A, "he");
   await setProfile(B, "he");
+
+  // Phase 8a: direct duels now require a friendship (createDuel friend gate).
+  // Written via admin (the real friend graph is exercised in social.integration).
+  await adminDb.doc(`friendships/${[A.uid, B.uid].sort().join("_")}`).set({
+    uids: [A.uid, B.uid].sort(), since: new Date().toISOString(), source: "test",
+  });
 });
 
 // Write a player's own profile via the client (rules allow the preference-field
@@ -456,6 +462,10 @@ describe("concurrency caps (GDD §4.6)", () => {
         language: "he",
         isGuest: true,
       });
+      // Friend gate: A must be friends with each capped opponent.
+      batch.set(adminDb.doc(`friendships/${[A.uid, `cap_opp_${i}`].sort().join("_")}`), {
+        uids: [A.uid, `cap_opp_${i}`].sort(), since: new Date().toISOString(), source: "test",
+      });
     }
     await batch.commit();
 
@@ -649,6 +659,10 @@ describe("WS1 — integrity & idempotency", () => {
     }
     for (const id of ["race_a", "race_b"]) {
       batch.set(adminDb.doc(`users/${id}`), { language: "he", isGuest: true });
+      // Friend gate: A must be friends with each race opponent.
+      batch.set(adminDb.doc(`friendships/${[A.uid, id].sort().join("_")}`), {
+        uids: [A.uid, id].sort(), since: new Date().toISOString(), source: "test",
+      });
     }
     await batch.commit();
 

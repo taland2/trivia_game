@@ -89,7 +89,12 @@ export const v1_submitDailyAnswer = onCall(
       const cached = await readIdempotent(tx, iref);
       if (cached !== null) return cached;
 
-      const playSnap = await tx.get(playRef);
+      // Both reads up front (no data dependency) in a single round-trip; all
+      // reads must precede writes in a transaction. getAll returns the snapshots
+      // in the order requested.
+      const snaps = await tx.getAll(playRef, userRef);
+      const playSnap = snaps[0]!;
+      const userSnap = snaps[1]!;
       if (!playSnap.exists) {
         throw new HttpsError("not-found", "Daily not started", {
           reason: "daily-unavailable",
@@ -109,8 +114,7 @@ export const v1_submitDailyAnswer = onCall(
         });
       }
 
-      // User doc read (reads precede writes): current xp + prior streak.
-      const userSnap = await tx.get(userRef);
+      // User doc: current xp + prior streak.
       const baseXp = (userSnap.data()?.["xp"] as number) ?? 0;
       const prevStreak = userSnap.data()?.["streak"] as Streak | undefined;
 

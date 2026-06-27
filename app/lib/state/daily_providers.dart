@@ -4,8 +4,10 @@ import 'auth_providers.dart';
 import 'firebase_providers.dart';
 
 /// The player's LOCAL calendar date as "YYYY-MM-DD" (GDD §5 Wordle model). The
-/// server validates it against a ±14h window. Computed per read so it tracks the
-/// device clock; `ref.invalidate` after midnight refreshes it.
+/// server validates it against a ±14h window. Cached for the session and
+/// invalidated on app resume (see TriviaApp.didChangeAppLifecycleState) so a
+/// midnight rollover while the app was backgrounded is picked up without a
+/// restart.
 String todayDayId() {
   final n = DateTime.now();
   final mm = n.month.toString().padLeft(2, '0');

@@ -566,6 +566,23 @@ the EN locale is Hebrew-free on the question screen; review docs drift reconcile
   > resume idempotency, out-of-order, streak increment, idempotent replay; +2 daily rules) +
   > 17 Flutter widget (+1 daily-screen: result renders from the server projection).
   > `flutter analyze`, `tsc`, ESLint all clean.
+  >
+  > **2026-06-25 — 7a code-review remediation.** Hardened the daily stack against six
+  > review findings: (1) **resume cursor** — `StartDailyResponse` now carries
+  > `answeredCount` (single-sourced from the new `DAILY_QUESTION_COUNT` contract const) and
+  > `DailyScreen` continues from it, so exiting mid-daily and re-entering no longer replays
+  > q0 into the sequential-answer guard (was a permanent same-day lockout). (2) **crash-safe
+  > start** — `v1_startDaily` writes the `dailyPlays` doc *before* serving (mirrors the duel),
+  > so a crash between the two self-heals via re-serve instead of stranding the player on
+  > "Daily not started". (3) **midnight rollover** — `todayDayIdProvider` is invalidated on
+  > app resume (`TriviaApp.didChangeAppLifecycleState`). (4) **length coupling** — balance
+  > `daily.composition` and the seeder both assert against `DAILY_QUESTION_COUNT` at load/seed
+  > time. (5) `submitDailyAnswer` reads play+user via one `tx.getAll`. (6) the daily/duel
+  > serving machinery is unified in `serve/serving.ts` (`servePlayerQuestions` /
+  > `loadServedQuestions`); `roundServing`/`dailyServing` are thin wrappers. New emulator test:
+  > resume-after-partial-play returns the cursor and still completes. `tsc`/ESLint/`flutter
+  > analyze`/76 unit + widget tests clean; emulator integration suite to be run in the dev
+  > loop (needs JDK 21).
 
 ### Phase 7b — Weekly Race + Podium + Daily Friends Board
 *Refs: doc 02 §7; doc 08 weekly/daily projections; doc 07 §2.4*
@@ -672,6 +689,52 @@ block/unfriend cascade. Device-tested install path — this is the flakiest feat
 **Exit checkpoint:** a fresh phone installs via an invite link and lands auto-friended
 in a ready duel vs. the inviter.
 
+> **2026-06-27 — Phase 8 split into 8a (emulator-first social graph) + 8b (real-project
+> identity & deep-links), per the 4a/4b · 6a/6b · 7a/7b cadence (user decision).** The
+> exit checkpoint above (install-path invite → auto-friended duel) is an **8b** deliverable
+> and bundles with the deferred Blaze/real-project session alongside Phase 9. **8a is
+> complete; proven on emulators ($0).**
+> **Decisions:** createDuel now enforces friendship + block; `v1_deleteAccount` = cascades
+> now (forfeit + tombstone), full PII wipe at Gate C; `users` reads widen to friends (doc 08);
+> cancelled match = `state:cancelled`+`result:null`; QR encodes the invite code; rate
+> limits / deep profanity / full wipe deferred to WS5/Gate C.
+>
+> ### Phase 8a — Social graph (emulator-first) ✅
+> **8a-1 backend.** New contract `api_contract/src/social.ts` (+5 error reasons in
+> `common.ts`). New `functions/src/social/`: `username` (pure normalize/validate/profanity) +
+> `v1_claimUsername` (transactional `usernames/{handle}` registry) + `v1_searchUsername`
+> (docId prefix scan, opt-out/block/self filtered, public subset only); `friendships.ts`
+> (`pairId`/create/remove/`eitherBlocks`/`isFriendTx`); `v1_sendFriendRequest`/
+> `v1_respondFriendRequest` (mutual + reverse-pending auto-accept; sender identity
+> denormalized onto the request so the recipient can render it); `v1_issueInviteCode`/
+> `v1_redeemInviteCode` (multi-use code → friendship + best-effort same-language auto-duel vs
+> inviter); `v1_unfriend`/`v1_block`/`v1_unblock` (block hides from search, removes edge,
+> cancels matches, drops boards both ways); `v1_completeOnboarding`; `v1_deleteAccount`
+> (opponent forfeit + tombstone + username release + graph drop). Cancel cascade
+> `social/cancelMatch.ts` (pure `decideCancel` + exactly-once `cancelMatchTx`, mirrors
+> `sweepForfeits`). Extracted shared `resolveForfeitWin` from `sweepForfeits.ts` (sweep +
+> deleteAccount share one path). `createDuel`/`acceptRematch` gained the friend/block gate
+> (`not-friends`/`blocked`). `firestore.rules`: `users` read widened to friends;
+> `friendships`/`friendRequests`/`invites` read-scoped; `usernames` callable-only; `username`/
+> `blocked` stay function-written. **Zero new composite indexes.** New ⚖️ `balance.social`
+> (searchResultLimit 10, inviteMaxRedemptions 50, autoDuelCategoryMode spin).
+> **8a-2 client.** `models/social_models.dart`, `services/social_service.dart` (SocialApi +
+> fake-injectable), `state/social_providers.dart` (live friendships/requests/friend-profile
+> streams). Real Friends tab (list + requests accept/decline + unfriend/block), add-friend
+> (username search + invite-code entry + scan), my-QR (qr_flutter) + scan (mobile_scanner)
+> with a manual-code fallback, profile edit (displayName/avatar/searchable/username/delete).
+> Friend picker + match_card now read the LIVE graph (kSeedFriends retired from the picker;
+> seed scripts stay for dev). Routes `/friends/{add,scan,myqr}` + `/profile/edit`; HE+EN l10n;
+> camera perms (Android + iOS). Packages: `qr_flutter`, `mobile_scanner`.
+> **Tests:** contract 26 · functions unit 93 (+17: username/friendships/invites/cancelMatch) ·
+> **emulator 92** (+ full social suite: claim/search/requests/invites/block/unfriend/createDuel
+> gate/deleteAccount; +rules matrix for users-friend-read / friendships / requests / invites /
+> usernames-denied / username+blocked write-deny) · Flutter 26 (+2 social widget). `tsc`,
+> ESLint, `flutter analyze` clean.
+> **8b (deferred to the Phase-9 real-project session):** Google/Apple sign-in + guest merge,
+> invite deep-link install path (Hosting redirect + install-referrer/clipboard), FTUE invite
+> sheet, registration prompts, App Check.
+
 ## Phase 9 — Notifications
 *Refs: doc 05 §3, doc 07 §3*
 
@@ -746,7 +809,8 @@ operating period, not a build phase).
 | 6b — Duel loop complete + WS2/WS3/WS4 | ✅ | 2026-06-23 | (this commit) |
 | 7a — Daily Challenge + streaks | ✅ | 2026-06-24 | (this commit) |
 | 7b — Weekly race + podium + daily board | ✅ | 2026-06-25 | (uncommitted) |
-| 8 — Identity & friends | ☐ | | |
+| 8a — Social graph (emulator-first) | ✅ | 2026-06-27 | (uncommitted) |
+| 8b — Identity & deep-links (real project) | ☐ | | (with Phase 9 Blaze step) |
 | 9 — Notifications | ☐ | | |
 | 10 — Content (parallel) | ☐ | | |
 | 11 — Gate B | ☐ | | |

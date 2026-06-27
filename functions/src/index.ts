@@ -15,6 +15,17 @@ export {
 } from "./match/strangerQueue.js";
 export { v1_startDaily } from "./daily/startDaily.js";
 export { v1_submitDailyAnswer } from "./daily/submitDailyAnswer.js";
+// Social graph (Phase 8a) — emulator-first; sign-in/merge/deep-links are 8b.
+export { v1_claimUsername } from "./social/claimUsername.js";
+export { v1_searchUsername } from "./social/searchUsername.js";
+export {
+  v1_sendFriendRequest,
+  v1_respondFriendRequest,
+} from "./social/friendRequests.js";
+export { v1_issueInviteCode, v1_redeemInviteCode } from "./social/invites.js";
+export { v1_unfriend, v1_block, v1_unblock } from "./social/block.js";
+export { v1_completeOnboarding } from "./social/onboarding.js";
+export { v1_deleteAccount } from "./social/deleteAccount.js";
 // Scheduled jobs — wired but NOT deployed until the Blaze step. See file headers.
 export { scheduledForfeitSweep } from "./jobs/scheduledForfeitSweep.js";
 export { scheduledWeeklyReset } from "./jobs/scheduledWeeklyReset.js";

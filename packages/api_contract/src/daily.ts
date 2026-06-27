@@ -10,6 +10,13 @@ import { ServingSchema } from "./serving.js";
 export const DayIdSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export type DayId = z.infer<typeof DayIdSchema>;
 
+// Number of questions in a daily set (GDD §5 — 3E+4M+3H = 10). The SINGLE source
+// of truth for "how many daily questions": the schemas below derive their bounds
+// from it, balance.ts asserts its daily.composition matches it, and the daily
+// seeder asserts the array it builds matches it — so the three can't silently
+// drift (a mismatch would otherwise surface only as a runtime daily-unavailable).
+export const DAILY_QUESTION_COUNT = 10;
+
 // --- v1_startDaily -----------------------------------------------------------
 // No idempotency key: like v1_startRound, repeat calls are made idempotent by the
 // already-served private docs (resume returns the identical servings, same clock).
@@ -21,7 +28,12 @@ export type StartDailyRequest = z.infer<typeof StartDailyRequestSchema>;
 export const StartDailyResponseSchema = z
   .object({
     dailyId: DayIdSchema, // == dayId; the client passes it back to submit
-    servings: z.array(ServingSchema).length(10),
+    servings: z.array(ServingSchema).length(DAILY_QUESTION_COUNT),
+    // How many questions the server has already recorded for this play (0 on a
+    // fresh start). On a resume the client MUST continue from this index — the
+    // submit path enforces sequential answering (qIx === answers.length), so
+    // replaying from 0 would be rejected out-of-order and strand the player.
+    answeredCount: z.number().int().min(0).max(DAILY_QUESTION_COUNT),
   })
   .strict();
 export type StartDailyResponse = z.infer<typeof StartDailyResponseSchema>;
@@ -32,7 +44,7 @@ export type StartDailyResponse = z.infer<typeof StartDailyResponseSchema>;
 export const SubmitDailyAnswerRequestSchema = z
   .object({
     dayId: DayIdSchema,
-    qIx: z.number().int().min(0).max(9),
+    qIx: z.number().int().min(0).max(DAILY_QUESTION_COUNT - 1),
     answerIx: z.number().int().min(0).max(3).nullable(),
     idempotencyKey: IdempotencyKeySchema,
   })
@@ -55,7 +67,7 @@ export const DailyResultSchema = z
   .object({
     dayId: DayIdSchema,
     score: z.number().int().min(0),
-    correctCount: z.number().int().min(0).max(10),
+    correctCount: z.number().int().min(0).max(DAILY_QUESTION_COUNT),
     totalMs: z.number().int().min(0),
     weeklyPointsAwarded: z.number().int().min(0),
   })

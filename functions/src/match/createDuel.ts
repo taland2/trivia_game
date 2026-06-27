@@ -4,8 +4,9 @@ import { getFirestore } from "../firebase.js";
 import { CreateDuelRequestSchema, type CategoryMode } from "@trivia/api-contract";
 import { getBalance, type Balance } from "../config/balance.js";
 import { FUNCTIONS_REGION } from "../config/region.js";
-import { loadUserLanguage } from "../user/profile.js";
+import { loadUserLanguage, loadBlocked } from "../user/profile.js";
 import { idempRef, readIdempotent, writeIdempotent } from "../lib/idempotency.js";
+import { eitherBlocks, isFriendTx } from "../social/friendships.js";
 import { deadlineFrom } from "./turn.js";
 import type { MatchDoc, MatchListEntry } from "./types.js";
 import {
@@ -101,9 +102,10 @@ export const v1_createDuel = onCall({ region: FUNCTIONS_REGION }, async (request
   }
 
   // All writes here are function-side (guardrail #1); clients only ever read
-  // these docs. Friendship validation + the block rule land with the social
-  // graph in Phase 8; this phase enforces the same-language rule (GDD §4.7) and
-  // the concurrency caps (GDD §4.6).
+  // these docs. This callable enforces the same-language rule (GDD §4.7), the
+  // concurrency caps (GDD §4.6), and the friendship + block gate (GDD §10.1 —
+  // direct duels are between friends; stranger matches bypass this callable, built
+  // by the queue). A blocked pair can never duel either way.
   const db = getFirestore();
   const balance = getBalance();
 
@@ -129,6 +131,16 @@ export const v1_createDuel = onCall({ region: FUNCTIONS_REGION }, async (request
     });
   }
 
+  // Block gate (GDD §10.1 / doc 09 §3): a blocked pair can't duel either way.
+  // Read-only precondition; safe before the transaction.
+  const [myBlocked, oppBlocked] = await Promise.all([
+    loadBlocked(db, uid),
+    loadBlocked(db, opponentUid),
+  ]);
+  if (eitherBlocks(myBlocked, oppBlocked, uid, opponentUid)) {
+    throw new HttpsError("permission-denied", "Blocked", { reason: "blocked" });
+  }
+
   const now = Timestamp.now();
   // Generated before the transaction so a replay returns the cached matchId and
   // this freshly-minted id is simply discarded.
@@ -141,6 +153,13 @@ export const v1_createDuel = onCall({ region: FUNCTIONS_REGION }, async (request
   const result = await db.runTransaction(async (tx) => {
     const cached = await readIdempotent<{ matchId: string }>(tx, iref);
     if (cached !== null) return cached;
+
+    // Friendship gate (read phase): direct duels are between friends (GDD §10.1).
+    if (!(await isFriendTx(tx, db, uid, opponentUid))) {
+      throw new HttpsError("permission-denied", "Not friends", {
+        reason: "not-friends",
+      });
+    }
 
     const active = await readActiveDuels(tx, db, uid);
     enforceActiveCaps(active, opponentUid, balance);

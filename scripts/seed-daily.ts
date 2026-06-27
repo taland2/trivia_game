@@ -13,6 +13,7 @@
 
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { DAILY_QUESTION_COUNT } from "@trivia/api-contract";
 
 process.env["FIRESTORE_EMULATOR_HOST"] = "127.0.0.1:8088";
 initializeApp({ projectId: "trivia-dev" });
@@ -26,6 +27,16 @@ const COMPOSITION = [
   "medium", "medium", "medium", "medium",
   "hard", "hard", "hard",
 ] as const;
+
+// Fail loudly at seed time if this hand-kept array drifts from the contract's
+// canonical question count — otherwise the mismatch only shows up as every
+// v1_startDaily rejecting the seeded set with daily-unavailable (ids.length
+// check), which is far harder to trace.
+if (COMPOSITION.length !== DAILY_QUESTION_COUNT) {
+  throw new Error(
+    `seed COMPOSITION length (${COMPOSITION.length}) must equal DAILY_QUESTION_COUNT (${DAILY_QUESTION_COUNT})`,
+  );
+}
 
 // The 8 launch categories (GDD §3.4), matching the dev-seed doc-id slugs.
 const CATEGORIES = [

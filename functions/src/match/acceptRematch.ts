@@ -4,7 +4,8 @@ import { getFirestore } from "../firebase.js";
 import { AcceptRematchRequestSchema } from "@trivia/api-contract";
 import { getBalance } from "../config/balance.js";
 import { FUNCTIONS_REGION } from "../config/region.js";
-import { loadUserLanguage } from "../user/profile.js";
+import { loadUserLanguage, loadBlocked } from "../user/profile.js";
+import { eitherBlocks } from "../social/friendships.js";
 import { idempRef, readIdempotent, writeIdempotent } from "../lib/idempotency.js";
 import {
   buildDuelMatch,
@@ -63,6 +64,16 @@ export const v1_acceptRematch = onCall({ region: FUNCTIONS_REGION }, async (requ
     throw new HttpsError("failed-precondition", "Different app languages", {
       reason: "language-mismatch",
     });
+  }
+
+  // Block gate (a rematch may be a stranger pairing, so NO friendship check — but
+  // a block since the original match must still stop it).
+  const [aBlocked, bBlocked] = await Promise.all([
+    loadBlocked(db, challenger),
+    loadBlocked(db, opponent),
+  ]);
+  if (eitherBlocks(aBlocked, bBlocked, challenger, opponent)) {
+    throw new HttpsError("permission-denied", "Blocked", { reason: "blocked" });
   }
 
   const now = Timestamp.now();

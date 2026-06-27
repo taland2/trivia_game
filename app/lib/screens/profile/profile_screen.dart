@@ -26,6 +26,15 @@ class ProfileScreen extends ConsumerWidget {
           _LevelHeader(profile: profile.valueOrNull, l: l),
           const SizedBox(height: AppSpacing.lg),
           ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: Text(l.editProfileTitle),
+            subtitle: profile.valueOrNull?.username != null
+                ? Text('@${profile.valueOrNull!.username}')
+                : null,
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('${Routes.profile}/${Routes.editProfile}'),
+          ),
+          ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: Text(l.profileSettings),
             trailing: const Icon(Icons.chevron_right),

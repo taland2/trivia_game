@@ -15,6 +15,9 @@ class UserProfile {
     required this.levelFloorXp,
     required this.levelCeilXp,
     required this.streakCount,
+    required this.username,
+    required this.searchable,
+    required this.avatarId,
   });
 
   final String displayName;
@@ -23,6 +26,13 @@ class UserProfile {
   final int level;
   final int levelFloorXp;
   final int levelCeilXp;
+
+  /// @username (function-written via v1_claimUsername), or null if unclaimed.
+  final String? username;
+
+  /// Search opt-in (client-writable preference). Profile edit toggles it.
+  final bool searchable;
+  final int avatarId;
 
   /// Daily streak — consecutive days played (GDD §5), function-written.
   final int streakCount;
@@ -43,6 +53,9 @@ class UserProfile {
         levelFloorXp: (m['levelFloorXp'] as num?)?.toInt() ?? 0,
         levelCeilXp: (m['levelCeilXp'] as num?)?.toInt() ?? 0,
         streakCount: ((m['streak'] as Map?)?['count'] as num?)?.toInt() ?? 0,
+        username: m['username'] as String?,
+        searchable: (m['searchable'] as bool?) ?? false,
+        avatarId: (m['avatarId'] as num?)?.toInt() ?? 0,
       );
 }
 

@@ -446,6 +446,234 @@ abstract class AppLocalizations {
   /// **'הלוח השבועי והחברים יגיעו בקרוב'**
   String get friendsComingSoon;
 
+  /// No description provided for @friendsMyQr.
+  ///
+  /// In he, this message translates to:
+  /// **'ה-QR שלי'**
+  String get friendsMyQr;
+
+  /// No description provided for @friendsAddTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'הוספת חבר'**
+  String get friendsAddTitle;
+
+  /// No description provided for @friendsRequestsTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'בקשות חברות'**
+  String get friendsRequestsTitle;
+
+  /// No description provided for @friendsAccept.
+  ///
+  /// In he, this message translates to:
+  /// **'אישור'**
+  String get friendsAccept;
+
+  /// No description provided for @friendsDecline.
+  ///
+  /// In he, this message translates to:
+  /// **'דחייה'**
+  String get friendsDecline;
+
+  /// No description provided for @friendsBlock.
+  ///
+  /// In he, this message translates to:
+  /// **'חסימה'**
+  String get friendsBlock;
+
+  /// No description provided for @friendsUnfriend.
+  ///
+  /// In he, this message translates to:
+  /// **'הסרת חבר'**
+  String get friendsUnfriend;
+
+  /// No description provided for @friendsUnfriendConfirm.
+  ///
+  /// In he, this message translates to:
+  /// **'להסיר את החבר?'**
+  String get friendsUnfriendConfirm;
+
+  /// No description provided for @friendsBlockConfirm.
+  ///
+  /// In he, this message translates to:
+  /// **'לחסום את המשתמש?'**
+  String get friendsBlockConfirm;
+
+  /// No description provided for @friendsEmptyTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'עדיין אין חברים'**
+  String get friendsEmptyTitle;
+
+  /// No description provided for @friendsEmptyBody.
+  ///
+  /// In he, this message translates to:
+  /// **'הוסיפו חברים לפי שם משתמש, QR או קוד הזמנה'**
+  String get friendsEmptyBody;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In he, this message translates to:
+  /// **'ביטול'**
+  String get commonCancel;
+
+  /// No description provided for @commonConfirm.
+  ///
+  /// In he, this message translates to:
+  /// **'אישור'**
+  String get commonConfirm;
+
+  /// No description provided for @addFriendSearchHint.
+  ///
+  /// In he, this message translates to:
+  /// **'חיפוש לפי שם משתמש'**
+  String get addFriendSearchHint;
+
+  /// No description provided for @addFriendSend.
+  ///
+  /// In he, this message translates to:
+  /// **'שליחת בקשה'**
+  String get addFriendSend;
+
+  /// No description provided for @addFriendSent.
+  ///
+  /// In he, this message translates to:
+  /// **'נשלח'**
+  String get addFriendSent;
+
+  /// No description provided for @inviteCodeTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'קוד הזמנה'**
+  String get inviteCodeTitle;
+
+  /// No description provided for @inviteCodeHint.
+  ///
+  /// In he, this message translates to:
+  /// **'הזינו קוד בן 8 תווים'**
+  String get inviteCodeHint;
+
+  /// No description provided for @inviteCodeInvalid.
+  ///
+  /// In he, this message translates to:
+  /// **'קוד לא תקין'**
+  String get inviteCodeInvalid;
+
+  /// No description provided for @inviteRedeemed.
+  ///
+  /// In he, this message translates to:
+  /// **'התווסף חבר!'**
+  String get inviteRedeemed;
+
+  /// No description provided for @scanQrTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'סריקת QR'**
+  String get scanQrTitle;
+
+  /// No description provided for @scanQrHint.
+  ///
+  /// In he, this message translates to:
+  /// **'כוונו את המצלמה אל ה-QR של החבר'**
+  String get scanQrHint;
+
+  /// No description provided for @myQrShareCode.
+  ///
+  /// In he, this message translates to:
+  /// **'הקוד שלך'**
+  String get myQrShareCode;
+
+  /// No description provided for @myQrCopyLink.
+  ///
+  /// In he, this message translates to:
+  /// **'העתקת קישור'**
+  String get myQrCopyLink;
+
+  /// No description provided for @editProfileTitle.
+  ///
+  /// In he, this message translates to:
+  /// **'עריכת פרופיל'**
+  String get editProfileTitle;
+
+  /// No description provided for @editProfileDisplayName.
+  ///
+  /// In he, this message translates to:
+  /// **'שם תצוגה'**
+  String get editProfileDisplayName;
+
+  /// No description provided for @editProfileAvatar.
+  ///
+  /// In he, this message translates to:
+  /// **'אווטאר'**
+  String get editProfileAvatar;
+
+  /// No description provided for @editProfileSearchable.
+  ///
+  /// In he, this message translates to:
+  /// **'ניתן לחיפוש'**
+  String get editProfileSearchable;
+
+  /// No description provided for @editProfileSearchableHint.
+  ///
+  /// In he, this message translates to:
+  /// **'אפשרו לחברים למצוא אתכם לפי שם משתמש'**
+  String get editProfileSearchableHint;
+
+  /// No description provided for @editProfileSave.
+  ///
+  /// In he, this message translates to:
+  /// **'שמירה'**
+  String get editProfileSave;
+
+  /// No description provided for @editProfileSaved.
+  ///
+  /// In he, this message translates to:
+  /// **'נשמר'**
+  String get editProfileSaved;
+
+  /// No description provided for @editProfileUsername.
+  ///
+  /// In he, this message translates to:
+  /// **'שם משתמש'**
+  String get editProfileUsername;
+
+  /// No description provided for @usernameClaimed.
+  ///
+  /// In he, this message translates to:
+  /// **'שם המשתמש נתפס בהצלחה'**
+  String get usernameClaimed;
+
+  /// No description provided for @usernameTaken.
+  ///
+  /// In he, this message translates to:
+  /// **'שם המשתמש כבר תפוס'**
+  String get usernameTaken;
+
+  /// No description provided for @usernameProfane.
+  ///
+  /// In he, this message translates to:
+  /// **'שם המשתמש אינו מורשה'**
+  String get usernameProfane;
+
+  /// No description provided for @usernameInvalid.
+  ///
+  /// In he, this message translates to:
+  /// **'שם משתמש לא תקין (3–20 תווים, a–z 0–9 _)'**
+  String get usernameInvalid;
+
+  /// No description provided for @deleteAccount.
+  ///
+  /// In he, this message translates to:
+  /// **'מחיקת חשבון'**
+  String get deleteAccount;
+
+  /// No description provided for @deleteAccountWarning.
+  ///
+  /// In he, this message translates to:
+  /// **'פעולה זו תמחק את החשבון ותעניק ניצחון ליריבים במשחקים הפעילים. לא ניתן לבטל.'**
+  String get deleteAccountWarning;
+
   /// No description provided for @profileTitle.
   ///
   /// In he, this message translates to:

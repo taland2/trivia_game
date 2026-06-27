@@ -61,6 +61,11 @@ class _DailyScreenState extends ConsumerState<DailyScreen> {
       if (!mounted) return;
       setState(() {
         _servings = start.servings;
+        // Resume from the server's cursor: it enforces sequential answering, so
+        // replaying from 0 after a mid-play exit would be rejected out-of-order.
+        // (Per-question recap rows for already-answered questions aren't replayed
+        // — the final score/streak still come authoritatively from the server.)
+        _currentQ = start.answeredCount.clamp(0, _servings.length);
         _phase = _Phase.playing;
       });
     } catch (_) {

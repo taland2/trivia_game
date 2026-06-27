@@ -12,6 +12,13 @@ import {
   MatchResultSchema,
   SendEmoteRequestSchema,
   SendEmoteResponseSchema,
+  UsernameSchema,
+  ClaimUsernameRequestSchema,
+  SearchUsernameResponseSchema,
+  SendFriendRequestResponseSchema,
+  IssueInviteCodeResponseSchema,
+  RedeemInviteCodeResponseSchema,
+  DeleteAccountRequestSchema,
 } from "./index.js";
 
 const validServing = {
@@ -297,6 +304,75 @@ describe("RoundResultSchema / MatchResultSchema", () => {
         reason: "rage_quit",
         finalScore: { uidA: 3, uidB: 0 },
       }),
+    ).toThrow();
+  });
+});
+
+describe("social schemas (Phase 8a)", () => {
+  const key = "00000000-0000-4000-8000-000000000000";
+
+  it("UsernameSchema enforces lowercase 3–20 [a-z0-9_]", () => {
+    expect(UsernameSchema.parse("dana_k")).toBe("dana_k");
+    for (const bad of ["ab", "a".repeat(21), "Dana", "has space", "emoji😀"]) {
+      expect(() => UsernameSchema.parse(bad)).toThrow();
+    }
+  });
+
+  it("ClaimUsername request is looser (server normalizes) but bounded + keyed", () => {
+    expect(
+      ClaimUsernameRequestSchema.parse({ username: "Dana_K", idempotencyKey: key }),
+    ).toEqual({ username: "Dana_K", idempotencyKey: key });
+    expect(() =>
+      ClaimUsernameRequestSchema.parse({ username: "", idempotencyKey: key }),
+    ).toThrow();
+    expect(() =>
+      ClaimUsernameRequestSchema.parse({ username: "x", idempotencyKey: "nope" }),
+    ).toThrow();
+  });
+
+  it("SearchUsername response caps results at 10", () => {
+    const hit = { uid: "u1", username: "abc", displayName: "ABC", avatarId: 0 };
+    expect(SearchUsernameResponseSchema.parse({ results: [hit] }).results).toHaveLength(1);
+    expect(() =>
+      SearchUsernameResponseSchema.parse({ results: Array(11).fill(hit) }),
+    ).toThrow();
+  });
+
+  it("friend-request state is constrained", () => {
+    expect(
+      SendFriendRequestResponseSchema.parse({ ok: true, state: "pending" }).state,
+    ).toBe("pending");
+    expect(() =>
+      SendFriendRequestResponseSchema.parse({ ok: true, state: "ghosted" }),
+    ).toThrow();
+  });
+
+  it("invite code is 8 chars + a URL link; redeem autoMatchId optional", () => {
+    expect(
+      IssueInviteCodeResponseSchema.parse({
+        code: "abcd1234",
+        link: "https://trivia.app/i/abcd1234",
+      }).code,
+    ).toBe("abcd1234");
+    expect(() =>
+      IssueInviteCodeResponseSchema.parse({ code: "short", link: "https://x/i/short" }),
+    ).toThrow();
+    expect(
+      RedeemInviteCodeResponseSchema.parse({ friendUid: "u2" }).autoMatchId,
+    ).toBeUndefined();
+    expect(
+      RedeemInviteCodeResponseSchema.parse({ friendUid: "u2", autoMatchId: "m1" })
+        .autoMatchId,
+    ).toBe("m1");
+  });
+
+  it("DeleteAccount requires the fixed confirm token", () => {
+    expect(
+      DeleteAccountRequestSchema.parse({ confirmPhrase: "DELETE", idempotencyKey: key })
+        .confirmPhrase,
+    ).toBe("DELETE");
+    expect(() =>
+      DeleteAccountRequestSchema.parse({ confirmPhrase: "delete", idempotencyKey: key }),
     ).toThrow();
   });
 });

@@ -180,11 +180,21 @@ Operational additions: `servedCount`, `correctCount`, `medianMs`, `lastServedAt`
 - `dailyPlays/{uid_dayId}`: `{score, correctCount, totalMs, finishedAt, streakAfter}`.
 - `daily/{dayId}/friendScores/{uid}`: projection mirroring `dailyPlays` public subset.
 
-### Social
-- `friendships/{uidA_uidB}` (sorted ids): `{uids:[a,b], since, source: invite|search|qr}`.
-- `invites/{code}`: `{issuerUid, createdAt, redemptions:[{uid, at}], maxRedemptions: ⚖️ 50}`
-  — multi-use so one WhatsApp-group link onboards the whole group.
-- `friendRequests/{id}`: `{from, to, state}`.
+### Social *(Phase 8a — function-written; clients read scoped slices, mutate via callables)*
+- `users/{uid}.username` (via `v1_claimUsername`) + `users/{uid}.blocked: [uid]` (via block/
+  unblock). `usernames/{handle}`: `{uid}` uniqueness registry — callable-only (no client read;
+  search returns a public subset through `v1_searchUsername`).
+- `friendships/{uidA_uidB}` (sorted ids): `{uids:[a,b], since, source: invite|search|qr|seed}`.
+  Member-readable; the weekly board fan-out reads it via `friendsOf`.
+- `invites/{code}` (8-char): `{issuerUid, createdAt, redemptions:[{uid, at}], maxRedemptions: ⚖️ 50}`
+  — multi-use so one group link onboards many. Issuer-readable only.
+- `friendRequests/{from}_{to}`: `{from, to, state: pending|accepted|declined, createdAt,
+  fromName, fromUsername?, fromAvatarId}` — sender identity denormalized so the recipient (not
+  yet a friend) can render it. Sender/recipient-readable.
+- **Block/unfriend** cancels active matches (`state:cancelled`, `result:null` — no points) and
+  drops the pair from each board. **Account deletion** forfeits active matches to the opponent
+  (`reason:opponent_deleted`) + tombstones the profile (full PII wipe = Gate C). `users` reads
+  widen to friends in 8a (hardening to a public subset = Gate C).
 
 ---
 

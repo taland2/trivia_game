@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/category_mode.dart';
-import '../data/seed_friends.dart';
+import '../models/social_models.dart';
 import '../round_screen.dart';
 import '../screens/daily/daily_screen.dart';
+import '../screens/friends/add_friend_screen.dart';
 import '../screens/friends/friends_screen.dart';
+import '../screens/friends/my_qr_screen.dart';
+import '../screens/friends/qr_scan_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/play/category_mode_picker.dart';
 import '../screens/play/friend_picker_screen.dart';
 import '../screens/play/play_screen.dart';
+import '../screens/profile/edit_profile_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/settings_screen.dart';
 import '../screens/weekly/weekly_screen.dart';
@@ -54,7 +58,7 @@ final appRouter = GoRouter(
                   path: Routes.categoryMode,
                   name: Routes.nameCategoryMode,
                   builder: (context, state) =>
-                      CategoryModePicker(friend: state.extra as SeedFriend),
+                      CategoryModePicker(friend: state.extra as Opponent),
                 ),
               ],
             ),
@@ -66,6 +70,23 @@ final appRouter = GoRouter(
               path: Routes.friends,
               name: Routes.nameFriends,
               builder: (context, state) => const FriendsScreen(),
+              routes: [
+                GoRoute(
+                  path: Routes.friendsAdd,
+                  name: Routes.nameFriendsAdd,
+                  builder: (context, state) => const AddFriendScreen(),
+                ),
+                GoRoute(
+                  path: Routes.friendsScan,
+                  name: Routes.nameFriendsScan,
+                  builder: (context, state) => const QrScanScreen(),
+                ),
+                GoRoute(
+                  path: Routes.friendsMyQr,
+                  name: Routes.nameFriendsMyQr,
+                  builder: (context, state) => const MyQrScreen(),
+                ),
+              ],
             ),
           ],
         ),
@@ -80,6 +101,11 @@ final appRouter = GoRouter(
                   path: Routes.settings,
                   name: Routes.nameSettings,
                   builder: (context, state) => const SettingsScreen(),
+                ),
+                GoRoute(
+                  path: Routes.editProfile,
+                  name: Routes.nameEditProfile,
+                  builder: (context, state) => const EditProfileScreen(),
                 ),
               ],
             ),

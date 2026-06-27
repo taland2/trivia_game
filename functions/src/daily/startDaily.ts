@@ -45,16 +45,24 @@ export const v1_startDaily = onCall({ region: FUNCTIONS_REGION }, async (request
   // in-progress play falls through to the resume path below.
   const playRef = db.doc(dailyPlayPath(uid, dayId));
   const playSnap = await playRef.get();
-  if (playSnap.exists && (playSnap.data() as DailyPlayDoc).finishedAt) {
+  const existingPlay = playSnap.exists ? (playSnap.data() as DailyPlayDoc) : null;
+  if (existingPlay?.finishedAt) {
     throw new HttpsError("failed-precondition", "Daily already played", {
       reason: "daily-already-played",
     });
   }
 
-  // Resume: the player was already served this day — return the same servings.
+  // Resume: the player was already served this day — return the same servings
+  // PLUS how many answers the server already has, so the client continues from
+  // there (the submit path enforces sequential answering; replaying from 0 would
+  // be rejected out-of-order and strand the player).
   const alreadyServed = await loadServedDaily(db, { dayId, uid, count });
   if (alreadyServed) {
-    return { dailyId: dayId, servings: alreadyServed } satisfies StartDailyResponse;
+    return {
+      dailyId: dayId,
+      servings: alreadyServed,
+      answeredCount: existingPlay?.answers.length ?? 0,
+    } satisfies StartDailyResponse;
   }
 
   // First start: load the curated set for the player's language, serve a per-
@@ -71,8 +79,14 @@ export const v1_startDaily = onCall({ region: FUNCTIONS_REGION }, async (request
     });
   }
   const questions = await loadQuestions(db, ids);
-  const servings = await serveDailyForPlayer(db, { dayId, uid, questions });
 
+  // Open the play BEFORE serving. Ordering matters for crash-safety: the resume
+  // guard above keys off servingsPrivate, so if serving committed but the play
+  // doc didn't, every resume would short-circuit on the servings and submit
+  // would forever throw "Daily not started" — a permanent per-day lockout. By
+  // writing the play doc first, a crash before serving leaves a play with no
+  // servings, and the next start re-serves (loadServedDaily returns null). This
+  // mirrors the duel, where the round doc is locked before serveRoundForPlayer.
   await playRef.set({
     dayId,
     uid,
@@ -85,5 +99,7 @@ export const v1_startDaily = onCall({ region: FUNCTIONS_REGION }, async (request
     startedAt: now,
   } satisfies DailyPlayDoc);
 
-  return { dailyId: dayId, servings } satisfies StartDailyResponse;
+  const servings = await serveDailyForPlayer(db, { dayId, uid, questions });
+
+  return { dailyId: dayId, servings, answeredCount: 0 } satisfies StartDailyResponse;
 });

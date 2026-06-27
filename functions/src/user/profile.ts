@@ -24,6 +24,44 @@ export async function loadUserLanguage(
   return typeof language === "string" && language.length > 0 ? language : null;
 }
 
+// The social-graph view of a profile (Phase 8a). Returns null if the doc is
+// missing. `blocked` defaults to []; `username` to null (un-claimed). Used by the
+// social callables to gate on block state, search-opt-out, and existence.
+export interface SocialProfile {
+  language: string | null;
+  displayName: string;
+  avatarId: number;
+  searchable: boolean;
+  blocked: string[];
+  username: string | null;
+  isGuest: boolean;
+}
+
+export async function loadSocialProfile(
+  db: Firestore,
+  uid: string,
+): Promise<SocialProfile | null> {
+  const snap = await db.doc(`users/${uid}`).get();
+  if (!snap.exists) return null;
+  const d = snap.data() ?? {};
+  const language = d["language"];
+  return {
+    language: typeof language === "string" && language.length > 0 ? language : null,
+    displayName: (d["displayName"] as string) ?? "",
+    avatarId: (d["avatarId"] as number) ?? 0,
+    searchable: (d["searchable"] as boolean) ?? false,
+    blocked: (d["blocked"] as string[]) ?? [],
+    username: (d["username"] as string) ?? null,
+    isGuest: (d["isGuest"] as boolean) ?? true,
+  };
+}
+
+// Read just a user's block list (cheap precondition read, like loadUserLanguage).
+export async function loadBlocked(db: Firestore, uid: string): Promise<string[]> {
+  const snap = await db.doc(`users/${uid}`).get();
+  return (snap.data()?.["blocked"] as string[]) ?? [];
+}
+
 // Read the fields the stranger queue matches on (GDD §4.8): language + level.
 // Returns null if the profile/language is missing; level defaults to 1 (the
 // minimum) for a player who has not yet earned XP.

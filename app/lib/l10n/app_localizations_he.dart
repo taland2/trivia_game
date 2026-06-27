@@ -200,6 +200,122 @@ class AppLocalizationsHe extends AppLocalizations {
   String get friendsComingSoon => 'הלוח השבועי והחברים יגיעו בקרוב';
 
   @override
+  String get friendsMyQr => 'ה-QR שלי';
+
+  @override
+  String get friendsAddTitle => 'הוספת חבר';
+
+  @override
+  String get friendsRequestsTitle => 'בקשות חברות';
+
+  @override
+  String get friendsAccept => 'אישור';
+
+  @override
+  String get friendsDecline => 'דחייה';
+
+  @override
+  String get friendsBlock => 'חסימה';
+
+  @override
+  String get friendsUnfriend => 'הסרת חבר';
+
+  @override
+  String get friendsUnfriendConfirm => 'להסיר את החבר?';
+
+  @override
+  String get friendsBlockConfirm => 'לחסום את המשתמש?';
+
+  @override
+  String get friendsEmptyTitle => 'עדיין אין חברים';
+
+  @override
+  String get friendsEmptyBody => 'הוסיפו חברים לפי שם משתמש, QR או קוד הזמנה';
+
+  @override
+  String get commonCancel => 'ביטול';
+
+  @override
+  String get commonConfirm => 'אישור';
+
+  @override
+  String get addFriendSearchHint => 'חיפוש לפי שם משתמש';
+
+  @override
+  String get addFriendSend => 'שליחת בקשה';
+
+  @override
+  String get addFriendSent => 'נשלח';
+
+  @override
+  String get inviteCodeTitle => 'קוד הזמנה';
+
+  @override
+  String get inviteCodeHint => 'הזינו קוד בן 8 תווים';
+
+  @override
+  String get inviteCodeInvalid => 'קוד לא תקין';
+
+  @override
+  String get inviteRedeemed => 'התווסף חבר!';
+
+  @override
+  String get scanQrTitle => 'סריקת QR';
+
+  @override
+  String get scanQrHint => 'כוונו את המצלמה אל ה-QR של החבר';
+
+  @override
+  String get myQrShareCode => 'הקוד שלך';
+
+  @override
+  String get myQrCopyLink => 'העתקת קישור';
+
+  @override
+  String get editProfileTitle => 'עריכת פרופיל';
+
+  @override
+  String get editProfileDisplayName => 'שם תצוגה';
+
+  @override
+  String get editProfileAvatar => 'אווטאר';
+
+  @override
+  String get editProfileSearchable => 'ניתן לחיפוש';
+
+  @override
+  String get editProfileSearchableHint =>
+      'אפשרו לחברים למצוא אתכם לפי שם משתמש';
+
+  @override
+  String get editProfileSave => 'שמירה';
+
+  @override
+  String get editProfileSaved => 'נשמר';
+
+  @override
+  String get editProfileUsername => 'שם משתמש';
+
+  @override
+  String get usernameClaimed => 'שם המשתמש נתפס בהצלחה';
+
+  @override
+  String get usernameTaken => 'שם המשתמש כבר תפוס';
+
+  @override
+  String get usernameProfane => 'שם המשתמש אינו מורשה';
+
+  @override
+  String get usernameInvalid => 'שם משתמש לא תקין (3–20 תווים, a–z 0–9 _)';
+
+  @override
+  String get deleteAccount => 'מחיקת חשבון';
+
+  @override
+  String get deleteAccountWarning =>
+      'פעולה זו תמחק את החשבון ותעניק ניצחון ליריבים במשחקים הפעילים. לא ניתן לבטל.';
+
+  @override
   String get profileTitle => 'פרופיל';
 
   @override

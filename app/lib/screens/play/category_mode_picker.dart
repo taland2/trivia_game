@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/category_mode.dart';
-import '../../data/seed_friends.dart';
+import '../../models/social_models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../router/routes.dart';
 import '../../screens/match/match_controller.dart';
@@ -14,7 +14,7 @@ import '../../theme/tokens.dart';
 /// inside the match flow (pick offer / wheel / auto).
 class CategoryModePicker extends ConsumerStatefulWidget {
   const CategoryModePicker({super.key, required this.friend});
-  final SeedFriend friend;
+  final Opponent friend;
 
   @override
   ConsumerState<CategoryModePicker> createState() => _CategoryModePickerState();

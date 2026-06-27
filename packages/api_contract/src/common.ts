@@ -44,10 +44,17 @@ export const ErrorReasonSchema = z.enum([
   // permission-denied
   "not-participant",
   "blocked",
+  "not-friends",
   // not-found
   "match",
   "user",
   "invite-code",
+  "friend-request",
   "daily-unavailable",
+  // already-exists / invite (social, Phase 8a)
+  "username-taken",
+  "username-profane",
+  "invite-self",
+  "invite-exhausted",
 ]);
 export type ErrorReason = z.infer<typeof ErrorReasonSchema>;
